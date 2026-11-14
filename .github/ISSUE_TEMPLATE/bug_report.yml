@@ -1,0 +1,53 @@
+name: Bug report
+description: Report a defect in node-contracts
+labels: ["bug"]
+body:
+    - type: markdown
+      attributes:
+          value: Thanks for taking the time to report a bug!
+    - type: input
+      id: version
+      attributes:
+          label: node-contracts version
+          placeholder: "1.0.0"
+      validations:
+          required: true
+    - type: dropdown
+      id: runtime
+      attributes:
+          label: Runtime
+          options:
+              - Node.js
+              - Bun
+              - Deno
+              - Other
+      validations:
+          required: true
+    - type: input
+      id: runtime-version
+      attributes:
+          label: Runtime version
+          placeholder: "Node v24.2.0 / Bun 1.4.2"
+      validations:
+          required: true
+    - type: textarea
+      id: reproduction
+      attributes:
+          label: Minimal reproduction
+          description: A small runnable snippet or link to a repository
+          render: ts
+      validations:
+          required: true
+    - type: textarea
+      id: expected
+      attributes:
+          label: Expected behavior
+      validations:
+          required: true
+    - type: textarea
+      id: actual
+      attributes:
+          label: Actual behavior
+          description: Include the full error and stack trace if available
+      validations:
+          required: true

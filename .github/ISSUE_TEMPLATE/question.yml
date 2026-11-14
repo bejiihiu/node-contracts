@@ -1,0 +1,16 @@
+name: Question
+description: Ask a question about usage or design
+labels: ["question"]
+body:
+    - type: textarea
+      id: question
+      attributes:
+          label: Your question
+          description: Include context — what you tried and what you expected
+      validations:
+          required: true
+    - type: input
+      id: version
+      attributes:
+          label: node-contracts version
+          placeholder: "1.0.0"
