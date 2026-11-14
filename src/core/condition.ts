@@ -1,5 +1,5 @@
 /**
- * Named conditions — the reusable unit of a node-contracts assertion.
+ * Named conditions — the reusable unit of a design-contracts assertion.
  *
  * A named condition is a plain data structure plus a `check()` method. It is
  * deliberately NOT callable: conditions travel through contracts, evaluators
@@ -71,7 +71,7 @@ export interface ConditionFailure {
  */
 export interface NamedCondition<Args extends unknown[]> {
     /** Brand tag, handy for cross-checking with {@link isNamedCondition}. */
-    readonly _tag: 'node-contracts/condition';
+    readonly _tag: 'design-contracts/condition';
     /** Explicit name, else the predicate's own name, else 'anonymous'. */
     readonly name: string;
     /** Stable identifier. Auto-assigned `condition-N` per process unless overridden. */
@@ -153,7 +153,7 @@ export type ConditionInput<Args extends unknown[] = unknown[]> =
 // even when the library is loaded twice (dual ESM/CJS packaging or an
 // npm/yarn mix). A plain string brand would work too, but this keeps the
 // global namespace clean while staying cross-instance safe.
-const CONDITION_BRAND: unique symbol = Symbol.for('node-contracts/named-condition');
+const CONDITION_BRAND: unique symbol = Symbol.for('design-contracts/named-condition');
 
 let idCounter = 0;
 const nextConditionId = (): string => {
@@ -465,7 +465,7 @@ const defineCondition = <Args extends unknown[]>(
     evaluateAsync: (self: NamedCondition<Args>, args: Args) => Promise<boolean>,
 ): NamedCondition<Args> => {
     const condition: NamedCondition<Args> = {
-        _tag: 'node-contracts/condition',
+        _tag: 'design-contracts/condition',
         id: init.id,
         name: init.name,
         message: init.message,

@@ -1,5 +1,5 @@
 /**
- * Global runtime configuration for node-contracts.
+ * Global runtime configuration for design-contracts.
  *
  * Resolution order (highest priority first):
  *
@@ -18,6 +18,8 @@
  * an inner scope can add disabled categories but cannot re-enable ones
  * disabled outer.
  */
+
+import type { ContractViolationError } from '../errors/base.js';
 
 import { hostConsole, hostProcess } from './host';
 import { isMode, isViolationCategory, MODES, VIOLATION_CATEGORIES } from './modes';
@@ -42,7 +44,7 @@ export interface AuditRecord {
 export interface ContractConfig {
     mode?: Mode;
     /** Called for every violation in `warn` mode and (if set) in `audit` mode. */
-    onViolation?: (error: Error) => void;
+    onViolation?: (error: ContractViolationError) => void;
     /** Called for every violation in `audit` mode. */
     onAudit?: (record: AuditRecord) => void;
     /** Violation categories to skip entirely (preconditions, postconditions, ...). */
@@ -56,7 +58,7 @@ export interface ContractConfig {
 /** Fully resolved, immutable configuration. Safe to hold and compare. */
 export interface ResolvedConfig {
     readonly mode: Mode;
-    readonly onViolation: ((error: Error) => void) | undefined;
+    readonly onViolation: ((error: ContractViolationError) => void) | undefined;
     readonly onAudit: ((record: AuditRecord) => void) | undefined;
     readonly disabled: ReadonlySet<ViolationCategory>;
     readonly captureStack: boolean;
@@ -104,7 +106,7 @@ function readEnvMode(): Mode {
         if (!envWarned) {
             envWarned = true;
             hostConsole().warn(
-                `[node-contracts] Unknown NODE_CONTRACTS_MODE "${raw}", falling back to "strict". ` +
+                `[design-contracts] Unknown NODE_CONTRACTS_MODE "${raw}", falling back to "strict". ` +
                     `Valid values: ${MODES.join(', ')}.`,
             );
         }
@@ -115,7 +117,7 @@ function readEnvMode(): Mode {
 
 interface MutableResolved {
     mode: Mode;
-    onViolation: ((error: Error) => void) | undefined;
+    onViolation: ((error: ContractViolationError) => void) | undefined;
     onAudit: ((record: AuditRecord) => void) | undefined;
     disabled: Set<ViolationCategory>;
     captureStack: boolean;

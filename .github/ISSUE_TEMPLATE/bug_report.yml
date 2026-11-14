@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a defect in node-contracts
+description: Report a defect in design-contracts
 labels: ["bug"]
 body:
     - type: markdown
@@ -8,7 +8,7 @@ body:
     - type: input
       id: version
       attributes:
-          label: node-contracts version
+          label: design-contracts version
           placeholder: "1.0.0"
       validations:
           required: true

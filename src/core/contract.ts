@@ -557,7 +557,7 @@ export function contract<A extends unknown[], R>(
             if (needsAsync) {
                 if (!probablyAsyncFn) {
                     throw new TypeError(
-                        `node-contracts: async predicate detected in a synchronous call path of "${fnName}"; ` +
+                        `design-contracts: async predicate detected in a synchronous call path of "${fnName}"; ` +
                             'make the wrapped function async (or return a promise) to use async predicates',
                     );
                 }
@@ -595,7 +595,7 @@ export function contract<A extends unknown[], R>(
                     const raw = entry.named.check(error, context) as unknown;
                     if (isThenable(raw) || entry.named.pendingVerdict !== undefined) {
                         throw new TypeError(
-                            `node-contracts: async on-error predicate detected in a synchronous call path of "${fnName}"; ` +
+                            `design-contracts: async on-error predicate detected in a synchronous call path of "${fnName}"; ` +
                                 'make the wrapped function async to use async predicates',
                         );
                     }
@@ -653,7 +653,7 @@ export function contract<A extends unknown[], R>(
                 const raw = entry.named.check(typed, context) as unknown;
                 if (isThenable(raw) || entry.named.pendingVerdict !== undefined) {
                     throw new TypeError(
-                        `node-contracts: async postcondition predicate detected in a synchronous call path of "${fnName}"; ` +
+                        `design-contracts: async postcondition predicate detected in a synchronous call path of "${fnName}"; ` +
                             'make the wrapped function async to use async predicates',
                     );
                 }

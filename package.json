@@ -3,7 +3,7 @@
     "version": "1.0.0",
     "description": "Design by Contract for JavaScript, TypeScript, Node.js and Bun",
     "license": "MIT",
-    "author": "node-contracts contributors",
+    "author": "design-contracts contributors",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bejiihiu/node-contracts.git"

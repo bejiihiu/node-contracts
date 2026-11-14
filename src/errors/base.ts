@@ -137,7 +137,7 @@ function serializeCause(cause: unknown): unknown {
 }
 
 /**
- * Base class for every error thrown by node-contracts.
+ * Base class for every error thrown by design-contracts.
  *
  * Carries structured, readonly metadata about the violation in addition to the
  * regular `Error` message and stack. Instances are safe to `instanceof`-check,

@@ -12,5 +12,5 @@ body:
     - type: input
       id: version
       attributes:
-          label: node-contracts version
+          label: design-contracts version
           placeholder: "1.0.0"

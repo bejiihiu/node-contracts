@@ -59,7 +59,7 @@ const structuredCloneFn: StructuredClone | undefined = (
 // same trick for console — one warn path, zero hard dependency on ambient types
 function warn(message: string): void {
     const c = (globalThis as { console?: { warn?(...args: unknown[]): void } }).console;
-    c?.warn?.(`node-contracts: ${message}`);
+    c?.warn?.(`design-contracts: ${message}`);
 }
 
 // shared degraded path: shallow copy where possible, live reference otherwise
@@ -365,7 +365,7 @@ export function snapshotArgs(
         const produced = spec(args);
         if (produced === null || typeof produced !== 'object' || Array.isArray(produced)) {
             throw new TypeError(
-                'node-contracts: an `old` capture function must return a plain object record',
+                'design-contracts: an `old` capture function must return a plain object record',
             );
         }
         // detach from whatever object the user happened to hand back

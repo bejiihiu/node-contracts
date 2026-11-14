@@ -1,5 +1,5 @@
 /**
- * Execution modes and violation categories for node-contracts.
+ * Execution modes and violation categories for design-contracts.
  *
  * Mode semantics (normative for the whole library):
  *

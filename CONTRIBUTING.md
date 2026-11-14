@@ -1,4 +1,4 @@
-# Contributing to node-contracts
+# Contributing to design-contracts
 
 Thanks for your interest in contributing! This document explains how to get involved.
 
@@ -59,7 +59,7 @@ docs: document audit mode
 
 Include:
 
-- node-contracts version, Node/Bun version, OS
+- design-contracts version, Node/Bun version, OS
 - Minimal reproduction (a small runnable snippet or repository)
 - Expected vs actual behavior
 

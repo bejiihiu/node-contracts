@@ -1,5 +1,5 @@
 /**
- * Scoped runtime context for node-contracts.
+ * Scoped runtime context for design-contracts.
  *
  * `withConfig()` layers a partial configuration on top of the global one for
  * the duration of a callback, without touching global state. It uses
@@ -18,6 +18,7 @@
 
 import { createRequire } from 'node:module';
 import { isContractsCompiledIn } from '../utils/build-flag';
+import type { ContractViolationError } from '../errors/base.js';
 import {
     assertValidConfig,
     getGeneration,
@@ -51,7 +52,7 @@ function detectAsyncLocalStorage(): AsyncLocalStorageLike<ScopeNode> | undefined
         // actually probes for node:async_hooks, so environments without it
         // fall back instead of failing module load.
         const cwd = hostProcess()?.cwd?.() ?? '/';
-        const require_ = createRequire(`${cwd}/node-contracts.cjs`);
+        const require_ = createRequire(`${cwd}/design-contracts.cjs`);
         const mod = require_('node:async_hooks') as {
             AsyncLocalStorage?: new () => AsyncLocalStorageLike<ScopeNode>;
         };
@@ -178,7 +179,7 @@ export function withConfig<R>(config: ContractConfig, fn: () => R): R {
 
 /** Compact one-line description of a violation for default console output. */
 export function formatViolation(report: ViolationReport): string {
-    const parts = [`[node-contracts] ${report.kind} violation`];
+    const parts = [`[design-contracts] ${report.kind} violation`];
     const where: string[] = [];
     if (report.contractName !== undefined) where.push(report.contractName);
     if (report.functionName !== undefined) where.push(report.functionName);
@@ -207,7 +208,7 @@ function formatCause(error: unknown): string {
  */
 export function reportViolation(
     report: ViolationReport,
-    error: Error,
+    error: ContractViolationError,
     contractMode?: Mode,
 ): void {
     const resolved = getEffectiveConfig(contractMode);
@@ -221,7 +222,7 @@ export function reportViolation(
                 try {
                     handler(error);
                 } catch (handlerError) {
-                    host.error(`[node-contracts] onViolation handler threw: ${formatCause(handlerError)}`);
+                    host.error(`[design-contracts] onViolation handler threw: ${formatCause(handlerError)}`);
                 }
             } else {
                 host.warn(formatViolation(report));
@@ -247,7 +248,7 @@ export function reportViolation(
                 try {
                     auditHandler(record);
                 } catch (handlerError) {
-                    host.error(`[node-contracts] onAudit handler threw: ${formatCause(handlerError)}`);
+                    host.error(`[design-contracts] onAudit handler threw: ${formatCause(handlerError)}`);
                 }
             }
             const violationHandler = resolved.onViolation;
@@ -255,7 +256,7 @@ export function reportViolation(
                 try {
                     violationHandler(error);
                 } catch (handlerError) {
-                    host.error(`[node-contracts] onViolation handler threw: ${formatCause(handlerError)}`);
+                    host.error(`[design-contracts] onViolation handler threw: ${formatCause(handlerError)}`);
                 }
             }
             return;

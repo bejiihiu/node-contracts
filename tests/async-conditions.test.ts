@@ -231,7 +231,7 @@ describe('conditions — async predicates (checkAsync)', () => {
 
     it('foreign NamedCondition without checkAsync is evaluated via its sync check()', async () => {
         const foreign = {
-            _tag: 'node-contracts/condition',
+            _tag: 'design-contracts/condition',
             id: 'foreign-1',
             name: 'foreign',
             message: undefined,
@@ -240,7 +240,7 @@ describe('conditions — async predicates (checkAsync)', () => {
             components: undefined,
             lastFailure: undefined,
             check: () => true,
-            [Symbol.for('node-contracts/named-condition')]: true,
+            [Symbol.for('design-contracts/named-condition')]: true,
         } as unknown as NamedCondition<[]>;
         expect(isNamedCondition(foreign)).toBe(true);
 
