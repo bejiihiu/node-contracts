@@ -1,0 +1,8 @@
+# keep lf everywhere so biome/formatting is byte-stable across OSes
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff2 binary

@@ -66,12 +66,14 @@ jobs:
                   node-version: ${{ matrix.node-version }}
 
             # vitest 5 needs node >= 22.12, the library itself supports node >= 18,
-            # so against node we only smoke-test the built dual package instead of running vitest
+            # so against node we only smoke-test the built dual package instead of running vitest.
+            # build runs through bun on purpose: tsup's bin resolves the system node,
+            # and node 18 cannot require tsup's ESM-only dependencies
             - name: Install dependencies
               run: bun install --frozen-lockfile
 
             - name: Build
-              run: bun run build
+              run: bun --bun run build
 
             - name: Smoke test (CommonJS)
               run: |
