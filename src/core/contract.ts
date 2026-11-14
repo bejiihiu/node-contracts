@@ -50,6 +50,7 @@ import type { Mode } from '../runtime/index.js';
 import { canSkip, getEffectiveConfig, reportViolation } from '../runtime/index.js';
 import type { NamedCondition } from './condition.js';
 import { condition, isNamedCondition } from './condition.js';
+import type { ContractMetadata } from './inheritance.js';
 
 /** Unwraps a promise-like result type, falling back to `R` itself. */
 type UnwrapPromise<R> = R extends PromiseLike<infer T> ? T : R;
@@ -606,6 +607,16 @@ export function contract<A extends unknown[], R>(
     // keep contract-wrapped functions indistinguishable from the originals
     Object.defineProperty(wrapper, 'length', { value: fn.length, configurable: true });
     Object.defineProperty(wrapper, 'name', { value: fnName, configurable: true });
+
+    // inheritance.ts reads this off the wrapper — same realm-global key, no runtime import cycle
+    const CONTRACT_METADATA = Symbol.for('design-contracts/contract');
+    const metadata: ContractMetadata<A, R> = { fn, name: contractName, options: o };
+    Object.defineProperty(wrapper, CONTRACT_METADATA, {
+        value: metadata,
+        enumerable: false,
+        configurable: true,
+        writable: false,
+    });
 
     return wrapper as (...args: A) => R;
 }

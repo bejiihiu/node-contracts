@@ -16,5 +16,13 @@ export type {
     PostPredicate,
 } from './contract.js';
 export { contract } from './contract.js';
+export type { ContractMetadata, MergeClassContractsOptions } from './inheritance.js';
+export {
+    attachContractMetadata,
+    getContractMetadata,
+    hasContractMetadata,
+    mergeClassContracts,
+    mergeContractOptions,
+} from './inheritance.js';
 export type { SanitizedJson, SanitizeOptions } from './sanitize.js';
 export { safeSerialize, sanitize } from './sanitize.js';
