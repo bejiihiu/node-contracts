@@ -26,7 +26,7 @@
     "sideEffects": false,
     "main": "./dist/index.cjs",
     "module": "./dist/index.js",
-    "types": "./dist/index.d.ts",
+    "types": "./dist/index.d.cts",
     "exports": {
         ".": {
             "import": {
@@ -36,6 +36,26 @@
             "require": {
                 "types": "./dist/index.d.cts",
                 "default": "./dist/index.cjs"
+            }
+        },
+        "./adapters": {
+            "import": {
+                "types": "./dist/adapters/index.d.ts",
+                "default": "./dist/adapters/index.js"
+            },
+            "require": {
+                "types": "./dist/adapters/index.d.cts",
+                "default": "./dist/adapters/index.cjs"
+            }
+        },
+        "./decorators": {
+            "import": {
+                "types": "./dist/decorators/index.d.ts",
+                "default": "./dist/decorators/index.js"
+            },
+            "require": {
+                "types": "./dist/decorators/index.d.cts",
+                "default": "./dist/decorators/index.cjs"
             }
         },
         "./package.json": "./package.json"
@@ -58,7 +78,7 @@
         "typecheck": "tsc --noEmit",
         "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
         "publint": "publint",
-        "attw": "attw --pack .",
+        "attw": "attw --pack . --profile node16",
         "prepublishOnly": "npm run clean && npm run build && npm run publint && npm run attw"
     },
     "devDependencies": {
