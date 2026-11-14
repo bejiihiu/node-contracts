@@ -1,0 +1,73 @@
+{
+    "name": "node-contracts",
+    "version": "1.0.0",
+    "description": "Design by Contract for JavaScript, TypeScript, Node.js and Bun",
+    "license": "MIT",
+    "author": "node-contracts contributors",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bejiihiu/node-contracts.git"
+    },
+    "bugs": {
+        "url": "https://github.com/bejiihiu/node-contracts/issues"
+    },
+    "homepage": "https://github.com/bejiihiu/node-contracts#readme",
+    "keywords": [
+        "contracts",
+        "design-by-contract",
+        "preconditions",
+        "postconditions",
+        "invariants",
+        "typescript",
+        "assertions",
+        "dbc"
+    ],
+    "type": "module",
+    "sideEffects": false,
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": {
+                "types": "./dist/index.d.ts",
+                "default": "./dist/index.js"
+            },
+            "require": {
+                "types": "./dist/index.d.cts",
+                "default": "./dist/index.cjs"
+            }
+        },
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist"
+    ],
+    "engines": {
+        "node": ">=18"
+    },
+    "packageManager": "bun@1.4.2",
+    "scripts": {
+        "build": "tsup",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "coverage": "vitest run --coverage",
+        "bench": "vitest bench --passWithNoTests",
+        "lint": "biome check .",
+        "format": "biome format --write .",
+        "typecheck": "tsc --noEmit",
+        "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+        "publint": "publint",
+        "attw": "attw --pack .",
+        "prepublishOnly": "npm run clean && npm run build && npm run publint && npm run attw"
+    },
+    "devDependencies": {
+        "@arethetypeswrong/cli": "^0.18.5",
+        "@biomejs/biome": "^2.6.7",
+        "@vitest/coverage-v8": "^5.1.0",
+        "publint": "^0.3.25",
+        "tsup": "^9.0.0",
+        "typescript": "~5.9.3",
+        "vitest": "^5.1.0"
+    }
+}
