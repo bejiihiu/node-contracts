@@ -8,5 +8,13 @@ export type {
     NamedCondition,
 } from './condition.js';
 export { all, any, condition, isNamedCondition, not } from './condition.js';
+export type {
+    ConditionPredicate,
+    ContractContext,
+    ContractOptions,
+    ErrorPredicate,
+    PostPredicate,
+} from './contract.js';
+export { contract } from './contract.js';
 export type { SanitizedJson, SanitizeOptions } from './sanitize.js';
 export { safeSerialize, sanitize } from './sanitize.js';
