@@ -1,16 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-    captureValue,
-    contract,
-    isReferenceCapture,
-    snapshotArgs,
-} from '../src/index.js';
 import type { ContractContext, OldValues } from '../src/index.js';
+import { captureValue, contract, isReferenceCapture, snapshotArgs } from '../src/index.js';
 
 // the repo compiles without ambient node types, so reach console structurally
-const testConsole = (globalThis as unknown as {
-    console: { warn(...args: unknown[]): void; error(...args: unknown[]): void };
-}).console;
+const testConsole = (
+    globalThis as unknown as {
+        console: { warn(...args: unknown[]): void; error(...args: unknown[]): void };
+    }
+).console;
 
 afterEach(() => {
     vi.restoreAllMocks();
@@ -173,10 +170,7 @@ describe('snapshotArgs — array form, name introspection', () => {
     });
 
     it('multi-line signatures resolve names correctly', () => {
-        const combine = (
-            alpha: string,
-            beta: number,
-        ): string => `${alpha}-${beta}`;
+        const combine = (alpha: string, beta: number): string => `${alpha}-${beta}`;
         const snap = snapshotArgs(combine, ['x', 9], ['alpha', 'beta']);
         expect(snap).toEqual({ alpha: 'x', beta: 9 });
     });

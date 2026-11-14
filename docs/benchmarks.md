@@ -18,45 +18,45 @@ bun run bench
 
 ## Results — Node 24.2.0 (`npx vitest bench`)
 
-| Scenario | ops/sec | vs plain |
-| --- | --- | --- |
-| plain call | 12.35M | 1x |
-| contract, 1 pre | 565.4k | ~22x slower |
-| contract, 3 pre | 388.3k | ~32x slower |
-| contract, pre + post | 433.7k | ~29x slower |
-| contract, pre + post + old (array form) | 101.3k | ~122x slower |
-| contract, `off` | 1.217M | ~10x slower |
-| contract, `warn` | 387.2k | ~32x slower |
-| contract, `silent` | 1.336M | ~9x slower |
-| async plain | 1.77M | 1x |
-| async contract, pre + post | 238.0k | ~7.4x slower |
-| plain method call | 6.38M | 1x |
-| contractObject + invariant | 254.7k | ~25x slower |
-| plain throw | 29.4k | 1x |
-| contract + onError (throwing fn) | 16.0k | ~1.8x slower |
+| Scenario                                | ops/sec | vs plain     |
+| --------------------------------------- | ------- | ------------ |
+| plain call                              | 12.35M  | 1x           |
+| contract, 1 pre                         | 565.4k  | ~22x slower  |
+| contract, 3 pre                         | 388.3k  | ~32x slower  |
+| contract, pre + post                    | 433.7k  | ~29x slower  |
+| contract, pre + post + old (array form) | 101.3k  | ~122x slower |
+| contract, `off`                         | 1.217M  | ~10x slower  |
+| contract, `warn`                        | 387.2k  | ~32x slower  |
+| contract, `silent`                      | 1.336M  | ~9x slower   |
+| async plain                             | 1.77M   | 1x           |
+| async contract, pre + post              | 238.0k  | ~7.4x slower |
+| plain method call                       | 6.38M   | 1x           |
+| contractObject + invariant              | 254.7k  | ~25x slower  |
+| plain throw                             | 29.4k   | 1x           |
+| contract + onError (throwing fn)        | 16.0k   | ~1.8x slower |
 
 ## Results — Bun 1.4.2 (`bun run bench`)
 
-| Scenario | ops/sec | vs plain |
-| --- | --- | --- |
-| plain call | 11.90M | 1x |
-| contract, 1 pre | 497.5k | ~24x slower |
-| contract, 3 pre | 352.2k | ~34x slower |
-| contract, pre + post | 403.7k | ~30x slower |
-| contract, pre + post + old (array form) | 100.2k | ~119x slower |
-| contract, `off` | 1.039M | ~11x slower |
-| contract, `warn` | 336.3k | ~35x slower |
-| contract, `silent` | 1.054M | ~11x slower |
-| async plain | 1.80M | 1x |
-| async contract, pre + post | 218.7k | ~8.2x slower |
-| plain method call | 6.42M | 1x |
-| contractObject + invariant | 233.3k | ~27x slower |
-| plain throw | 26.6k | 1x |
-| contract + onError (throwing fn) | 15.5k | ~1.7x slower |
+| Scenario                                | ops/sec | vs plain     |
+| --------------------------------------- | ------- | ------------ |
+| plain call                              | 11.90M  | 1x           |
+| contract, 1 pre                         | 497.5k  | ~24x slower  |
+| contract, 3 pre                         | 352.2k  | ~34x slower  |
+| contract, pre + post                    | 403.7k  | ~30x slower  |
+| contract, pre + post + old (array form) | 100.2k  | ~119x slower |
+| contract, `off`                         | 1.039M  | ~11x slower  |
+| contract, `warn`                        | 336.3k  | ~35x slower  |
+| contract, `silent`                      | 1.054M  | ~11x slower  |
+| async plain                             | 1.80M   | 1x           |
+| async contract, pre + post              | 218.7k  | ~8.2x slower |
+| plain method call                       | 6.42M   | 1x           |
+| contractObject + invariant              | 233.3k  | ~27x slower  |
+| plain throw                             | 26.6k   | 1x           |
+| contract + onError (throwing fn)        | 15.5k   | ~1.7x slower |
 
 ## Read these numbers the honest way
 
-1. **Upper bounds, not predictions.** The vitest module-runner adds cross-module getter overhead (it interposes proxy getters on every module-export access — that is where most of the "1 pre costs 22x" lives). A compiled `dist` build resolves these once and is cheaper in absolute terms. Treat everything here as a pessimistic ceiling; `off` in particular is only this expensive *inside the benchmark harness*.
+1. **Upper bounds, not predictions.** The vitest module-runner adds cross-module getter overhead (it interposes proxy getters on every module-export access — that is where most of the "1 pre costs 22x" lives). A compiled `dist` build resolves these once and is cheaper in absolute terms. Treat everything here as a pessimistic ceiling; `off` in particular is only this expensive _inside the benchmark harness_.
 2. **Relative orderings are meaningful.** `off` ≈ `silent` < `warn` ≈ `strict`-like typical; `old` dominates everything (a `structuredClone` per call); async contracts cost proportionally less because promise machinery dwarfs the check.
 3. **`off` is not free, and that surprised us.** The goal of "off ≈ ≤ 5x" was **not** reached — ~10–11x remains under the module-runner (one `getEffectiveConfig` + one flag read + a few `Set.has` before the bare call). Physical removal requires the [compile-time define](./api.md#iscontractscompiledin--compile-time-disabling); even then, esbuild's minifier folds the flag but does not inline away the cross-module branches (terser does).
 4. **`warn` ≈ `strict`.** Same predicate cost; the only difference is what happens on violation. Do not reach for `warn` expecting it to be cheap — it is `strict` with a softer landing.

@@ -20,23 +20,23 @@ Error
 
 `ContractViolationError` is a plain `Error` plus readonly, structured metadata:
 
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `name` | `string` | Class name (e.g. `PreconditionViolationError`) |
-| `kind` | `ContractViolationKind` | Which section of the contract was violated |
-| `contractName?` | `string` | The contract's `name` (or `fn.name` / `'anonymous'`) |
-| `functionName?` | `string` | The wrapped function's name |
-| `conditionIndex?` | `number` | Zero-based index of the failing condition within its section |
-| `conditionName?` | `string` | Name of the failing *named* condition (bare predicates do not set this) |
-| `conditionName` on composites | — | Composite name, e.g. `all(not blank, email shape)` |
-| `context?` | `Record<string, unknown>` | Only what the caller (or a failing contract) explicitly attaches — sanitized; never raw arguments |
-| `mode` | `ContractMode` | Effective mode when the violation occurred (defaults `'strict'`) |
+| Field                         | Type                      | Meaning                                                                                           |
+| ----------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------- |
+| `name`                        | `string`                  | Class name (e.g. `PreconditionViolationError`)                                                    |
+| `kind`                        | `ContractViolationKind`   | Which section of the contract was violated                                                        |
+| `contractName?`               | `string`                  | The contract's `name` (or `fn.name` / `'anonymous'`)                                              |
+| `functionName?`               | `string`                  | The wrapped function's name                                                                       |
+| `conditionIndex?`             | `number`                  | Zero-based index of the failing condition within its section                                      |
+| `conditionName?`              | `string`                  | Name of the failing _named_ condition (bare predicates do not set this)                           |
+| `conditionName` on composites | —                         | Composite name, e.g. `all(not blank, email shape)`                                                |
+| `context?`                    | `Record<string, unknown>` | Only what the caller (or a failing contract) explicitly attaches — sanitized; never raw arguments |
+| `mode`                        | `ContractMode`            | Effective mode when the violation occurred (defaults `'strict'`)                                  |
 
 Notes:
 
 - `conditionIndex` is **0-based**, counted within the `pre` / `post` / `onError` / `invariant` array.
 - `context` is never populated implicitly. Raw arguments, secrets and PII are **your** responsibility — pass nothing, or pass a sanitized record.
-- `cause` follows the standard `Error` `cause` semantics: failing predicates that are themselves composites chain their `ConditionFailure` tree there. When a method fails *and* the invariant broke on settle, the method's original error is preserved as `cause`.
+- `cause` follows the standard `Error` `cause` semantics: failing predicates that are themselves composites chain their `ConditionFailure` tree there. When a method fails _and_ the invariant broke on settle, the method's original error is preserved as `cause`.
 - For optional fields, check with `!== undefined` (`in` is unreliable — class-field declarations may create own properties with value `undefined`).
 
 ## Message format

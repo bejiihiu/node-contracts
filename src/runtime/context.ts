@@ -17,8 +17,9 @@
  */
 
 import { createRequire } from 'node:module';
-import { isContractsCompiledIn } from '../utils/build-flag';
 import type { ContractViolationError } from '../errors/base.js';
+import { isContractsCompiledIn } from '../utils/build-flag';
+import type { AuditRecord, ContractConfig, ResolvedConfig, ViolationReport } from './config';
 import {
     assertValidConfig,
     getGeneration,
@@ -26,12 +27,6 @@ import {
     resolveWithLayers,
     snapshotConfig,
     withContractMode,
-} from './config';
-import type {
-    AuditRecord,
-    ContractConfig,
-    ResolvedConfig,
-    ViolationReport,
 } from './config';
 import { hostConsole, hostProcess } from './host';
 import type { Mode, ViolationCategory } from './modes';
@@ -56,7 +51,11 @@ function detectAsyncLocalStorage(): AsyncLocalStorageLike<ScopeNode> | undefined
         const mod = require_('node:async_hooks') as {
             AsyncLocalStorage?: new () => AsyncLocalStorageLike<ScopeNode>;
         };
-        if (mod === null || typeof mod !== 'object' || typeof mod.AsyncLocalStorage !== 'function') {
+        if (
+            mod === null ||
+            typeof mod !== 'object' ||
+            typeof mod.AsyncLocalStorage !== 'function'
+        ) {
             return undefined;
         }
         return new mod.AsyncLocalStorage();
@@ -98,7 +97,11 @@ export function getEffectiveConfig(contractMode?: Mode): ResolvedConfig {
         } else {
             // unwind the chain, then apply outermost -> innermost
             const outermostFirst: ContractConfig[] = [];
-            for (let current: ScopeNode | undefined = node; current !== undefined; current = current.parent) {
+            for (
+                let current: ScopeNode | undefined = node;
+                current !== undefined;
+                current = current.parent
+            ) {
                 outermostFirst.push(current.local);
             }
             outermostFirst.reverse();
@@ -222,7 +225,9 @@ export function reportViolation(
                 try {
                     handler(error);
                 } catch (handlerError) {
-                    host.error(`[design-contracts] onViolation handler threw: ${formatCause(handlerError)}`);
+                    host.error(
+                        `[design-contracts] onViolation handler threw: ${formatCause(handlerError)}`,
+                    );
                 }
             } else {
                 host.warn(formatViolation(report));
@@ -240,7 +245,9 @@ export function reportViolation(
                 mode: resolved.mode,
                 ...(report.contractName !== undefined ? { contractName: report.contractName } : {}),
                 ...(report.functionName !== undefined ? { functionName: report.functionName } : {}),
-                ...(report.conditionIndex !== undefined ? { conditionIndex: report.conditionIndex } : {}),
+                ...(report.conditionIndex !== undefined
+                    ? { conditionIndex: report.conditionIndex }
+                    : {}),
                 ...(report.durationMs !== undefined ? { durationMs: report.durationMs } : {}),
             };
             const auditHandler = resolved.onAudit;
@@ -248,7 +255,9 @@ export function reportViolation(
                 try {
                     auditHandler(record);
                 } catch (handlerError) {
-                    host.error(`[design-contracts] onAudit handler threw: ${formatCause(handlerError)}`);
+                    host.error(
+                        `[design-contracts] onAudit handler threw: ${formatCause(handlerError)}`,
+                    );
                 }
             }
             const violationHandler = resolved.onViolation;
@@ -256,7 +265,9 @@ export function reportViolation(
                 try {
                     violationHandler(error);
                 } catch (handlerError) {
-                    host.error(`[design-contracts] onViolation handler threw: ${formatCause(handlerError)}`);
+                    host.error(
+                        `[design-contracts] onViolation handler threw: ${formatCause(handlerError)}`,
+                    );
                 }
             }
             return;

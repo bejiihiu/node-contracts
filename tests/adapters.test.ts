@@ -25,17 +25,11 @@ const loadDiagnosticsChannelSubset = (): DiagnosticsChannelSubset => {
 const dc = loadDiagnosticsChannelSubset();
 const channel = (name: string): ReturnType<DiagnosticsChannelSubset['channel']> => dc.channel(name);
 
+import type { PinoLikeLogger, SpanEventLike, WinstonLikeLogger } from '../src/adapters/index.js';
 import {
-    contract,
-    configure,
-    resetConfig,
-    PreconditionViolationError,
-} from '../src/index.js';
-import type { AuditRecord } from '../src/index.js';
-import {
-    consoleAdapter,
     CONTRACTS_AUDIT_CHANNEL,
     CONTRACTS_VIOLATION_CHANNEL,
+    consoleAdapter,
     diagnosticsChannelAdapter,
     diagnosticsChannelAuditAdapter,
     formatViolation,
@@ -46,16 +40,15 @@ import {
     winstonAdapter,
     winstonAuditAdapter,
 } from '../src/adapters/index.js';
-import type {
-    PinoLikeLogger,
-    SpanEventLike,
-    WinstonLikeLogger,
-} from '../src/adapters/index.js';
+import type { AuditRecord } from '../src/index.js';
+import { configure, contract, PreconditionViolationError, resetConfig } from '../src/index.js';
 
 // the repo compiles without ambient node types, so reach console structurally
-const testConsole = (globalThis as unknown as {
-    console: { warn(...args: unknown[]): void; error(...args: unknown[]): void };
-}).console;
+const testConsole = (
+    globalThis as unknown as {
+        console: { warn(...args: unknown[]): void; error(...args: unknown[]): void };
+    }
+).console;
 
 const divide = (a: number, b: number): number => a / b;
 
@@ -67,17 +60,16 @@ const makeViolation = (): PreconditionViolationError =>
         conditionName: 'positive',
     });
 
-const makeAuditRecord = (): AuditRecord =>
-    ({
-        kind: 'precondition',
-        message: 'precondition violated: divide (condition #0)',
-        timestamp: 1718000000000,
-        mode: 'audit',
-        contractName: 'billing',
-        functionName: 'divide',
-        conditionIndex: 0,
-        durationMs: 5,
-    });
+const makeAuditRecord = (): AuditRecord => ({
+    kind: 'precondition',
+    message: 'precondition violated: divide (condition #0)',
+    timestamp: 1718000000000,
+    mode: 'audit',
+    contractName: 'billing',
+    functionName: 'divide',
+    conditionIndex: 0,
+    durationMs: 5,
+});
 
 const makeFakePino = (): {
     error: ReturnType<typeof vi.fn>;
@@ -331,9 +323,7 @@ describe('openTelemetryAdapter', () => {
     });
 
     it('two arguments with a non-span first argument is a TypeError', () => {
-        expect(() =>
-            openTelemetryAdapter({} as never, {}),
-        ).toThrow(TypeError);
+        expect(() => openTelemetryAdapter({} as never, {})).toThrow(TypeError);
     });
 
     it('includeContext: true serializes a cyclic context to a JSON string attribute', () => {
@@ -370,10 +360,7 @@ describe('openTelemetryAdapter', () => {
 });
 
 describe('diagnosticsChannelAdapter', () => {
-    const subscribe = (
-        name: string,
-        collect: (message: unknown) => void,
-    ): (() => void) => {
+    const subscribe = (name: string, collect: (message: unknown) => void): (() => void) => {
         const ch = channel(name);
         ch.subscribe(collect);
         return () => ch.unsubscribe(collect);
@@ -512,7 +499,9 @@ describe('e2e — configure() wires adapters into the violation pipeline', () =>
         // assignable under strictFunctionTypes; cast to wire it (noted in notes.md)
         configure({
             mode: 'warn',
-            onViolation: diagnosticsChannelAdapter(channelName) as unknown as (error: Error) => void,
+            onViolation: diagnosticsChannelAdapter(channelName) as unknown as (
+                error: Error,
+            ) => void,
         });
         const ch = channel(channelName);
         ch.subscribe(listener);
@@ -528,4 +517,3 @@ describe('e2e — configure() wires adapters into the violation pipeline', () =>
         expect(event.violation).toBeInstanceOf(PreconditionViolationError);
     });
 });
-

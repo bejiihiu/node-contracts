@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { ContractContext, ContractOptions, OldValues } from '../src/index.js';
 import {
     all,
     any,
@@ -7,9 +8,6 @@ import {
     getContractMetadata,
     mergeClassContracts,
     mergeContractOptions,
-} from '../src/index.js';
-import type { ContractContext, ContractOptions, OldValues } from '../src/index.js';
-import {
     OnErrorViolationError,
     PostconditionViolationError,
     PreconditionViolationError,
@@ -64,7 +62,10 @@ describe('mergeContractOptions() pre — Eiffel disjunction', () => {
     });
 
     it('builds a single any(all(base), all(derived)) disjunction when both sides declare pre', () => {
-        const merged = mergeContractOptions<[number], number>({ pre: baseOnly }, { pre: derivedOnly });
+        const merged = mergeContractOptions<[number], number>(
+            { pre: baseOnly },
+            { pre: derivedOnly },
+        );
         expect(merged?.pre).toHaveLength(1);
         const [disjunction] = merged?.pre ?? [];
         expect(disjunction).toMatchObject({ _tag: 'design-contracts/condition' });
@@ -72,7 +73,10 @@ describe('mergeContractOptions() pre — Eiffel disjunction', () => {
     });
 
     it('passes when the derived side holds even if base fails', () => {
-        const merged = mergeContractOptions<[number], number>({ pre: baseOnly }, { pre: derivedOnly });
+        const merged = mergeContractOptions<[number], number>(
+            { pre: baseOnly },
+            { pre: derivedOnly },
+        );
         const fn = contract((n: number) => n, merged);
         expect(fn(150)).toBe(150); // both hold
         expect(() => fn(50)).not.toThrow(); // derived side holds (50 > 0), base fails
@@ -188,7 +192,9 @@ describe('mergeContractOptions() post — union, base first', () => {
     });
 
     it('keeps one side verbatim when the other is undefined', () => {
-        expect(mergeContractOptions<[number], number>({ post: [basePost] }, undefined)?.post).toEqual([basePost]);
+        expect(
+            mergeContractOptions<[number], number>({ post: [basePost] }, undefined)?.post,
+        ).toEqual([basePost]);
     });
 });
 
@@ -197,7 +203,10 @@ describe('mergeContractOptions() onError — union, base first', () => {
         const seen: string[] = [];
         const base = [() => (seen.push('base'), true)];
         const derived = [() => (seen.push('derived'), true)];
-        const merged = mergeContractOptions<[number], number>({ onError: base }, { onError: derived });
+        const merged = mergeContractOptions<[number], number>(
+            { onError: base },
+            { onError: derived },
+        );
         const failing = contract<[number], number>((_n: number): number => {
             throw new Error('boom');
         }, merged);
@@ -261,18 +270,23 @@ describe('mergeContractOptions() scalar options — derived wins, undefined mean
     });
 
     it('picks mode from derived over base', () => {
-        expect(mergeContractOptions<[number], number>({ mode: 'strict' }, { mode: 'warn' })?.mode).toBe('warn');
+        expect(
+            mergeContractOptions<[number], number>({ mode: 'strict' }, { mode: 'warn' })?.mode,
+        ).toBe('warn');
         expect(mergeContractOptions<[number], number>({ mode: 'warn' }, {})?.mode).toBe('warn');
     });
 
     it('picks name from derived over base', () => {
-        expect(mergeContractOptions<[number], number>({ name: 'base' }, { name: 'derived' })?.name).toBe('derived');
+        expect(
+            mergeContractOptions<[number], number>({ name: 'base' }, { name: 'derived' })?.name,
+        ).toBe('derived');
         expect(mergeContractOptions<[number], number>({ name: 'base' }, {})?.name).toBe('base');
     });
 
     it('lets an explicit false captureStack from derived beat a base true', () => {
         expect(
-            mergeContractOptions<[number], number>({ captureStack: true }, { captureStack: false })?.captureStack,
+            mergeContractOptions<[number], number>({ captureStack: true }, { captureStack: false })
+                ?.captureStack,
         ).toBe(false);
         expect(
             mergeContractOptions<[number], number>({ captureStack: false }, {})?.captureStack,
@@ -280,12 +294,19 @@ describe('mergeContractOptions() scalar options — derived wins, undefined mean
     });
 
     it('lets an explicit false captureStack from base apply when derived is unset', () => {
-        expect(mergeContractOptions<[number], number>({ captureStack: false }, {})?.captureStack).toBe(false);
+        expect(
+            mergeContractOptions<[number], number>({ captureStack: false }, {})?.captureStack,
+        ).toBe(false);
     });
 
     it('picks message from derived over base', () => {
-        expect(mergeContractOptions<[number], number>({ message: 'base' }, { message: 'derived' })?.message).toBe('derived');
-        expect(mergeContractOptions<[number], number>({ message: 'base' }, {})?.message).toBe('base');
+        expect(
+            mergeContractOptions<[number], number>({ message: 'base' }, { message: 'derived' })
+                ?.message,
+        ).toBe('derived');
+        expect(mergeContractOptions<[number], number>({ message: 'base' }, {})?.message).toBe(
+            'base',
+        );
     });
 
     it('leaves every scalar option unset when both sides leave them unset', () => {
@@ -463,11 +484,9 @@ describe('mergeClassContracts()', () => {
         expect(grandSpy).toHaveBeenCalled();
 
         const mergedMeta = getContractMetadata(DerivedChain.prototype.seg);
-        expect(mergedMeta?.options.post?.map((entry) => (entry as { name?: string }).name)).toEqual([
-            'grandPost',
-            'basePost',
-            'derivedPost',
-        ]);
+        expect(mergedMeta?.options.post?.map((entry) => (entry as { name?: string }).name)).toEqual(
+            ['grandPost', 'basePost', 'derivedPost'],
+        );
     });
 
     it('reports a failing grand-side predicate at index 0 after a deep bottom-up merge', () => {
@@ -580,7 +599,8 @@ describe('mergeClassContracts()', () => {
             }
         }
         const derivedAccessor = contract(
-            Object.getOwnPropertyDescriptor(AccessorDerived.prototype, 'value')?.get as () => number,
+            Object.getOwnPropertyDescriptor(AccessorDerived.prototype, 'value')
+                ?.get as () => number,
             { post: [namedPost<[]>('derivedAccessorPost', () => true)] },
         );
         Object.defineProperty(AccessorDerived.prototype, 'value', {
@@ -590,9 +610,9 @@ describe('mergeClassContracts()', () => {
 
         mergeClassContracts(AccessorDerived, AccessorBase);
 
-        expect(
-            Object.getOwnPropertyDescriptor(AccessorDerived.prototype, 'value')?.get,
-        ).toBe(derivedAccessor);
+        expect(Object.getOwnPropertyDescriptor(AccessorDerived.prototype, 'value')?.get).toBe(
+            derivedAccessor,
+        );
         // base post would fail — it must NOT run because accessors are skipped
         expect(new AccessorDerived().value).toBe(42);
     });
@@ -703,9 +723,13 @@ describe('mergeContractOptions() conditions after merge', () => {
         const caught = catchError(() => contract((n: number) => n, merged)(1));
         const error = caught as PreconditionViolationError;
         expect(error.cause).toMatchObject({ operator: 'any', index: -1 });
-        const components = (error.cause as { components: { conditionName: string; operator: string }[] })
-            .components;
-        expect(components.map((c) => c.conditionName)).toEqual(['all(baseLeaf)', 'all(derivedLeaf)']);
+        const components = (
+            error.cause as { components: { conditionName: string; operator: string }[] }
+        ).components;
+        expect(components.map((c) => c.conditionName)).toEqual([
+            'all(baseLeaf)',
+            'all(derivedLeaf)',
+        ]);
     });
 
     it('unions onError with base first and keeps indexes after a merge with three entries', () => {

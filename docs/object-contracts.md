@@ -1,6 +1,6 @@
 # Object Contracts
 
-`contractObject(target, options?)` wraps an object in a `Proxy` and enforces invariants on it. Use it when a *whole object* must remain legal, not just one function's inputs and outputs.
+`contractObject(target, options?)` wraps an object in a `Proxy` and enforces invariants on it. Use it when a _whole object_ must remain legal, not just one function's inputs and outputs.
 
 ## The three check boundaries
 
@@ -55,12 +55,12 @@ ada.balance = -50; // write applied, then InvariantViolationError ('<set>')
 
 ## Options
 
-| Field | Type | Default | Meaning |
-| --- | --- | --- | --- |
-| `invariant` | `readonly ObjectInvariant<Self>[]` | `[]` | Invariants checked at the three boundaries |
-| `name` | `string` | target's constructor name, else `'object'` | Contract name in violation reports |
-| `mode` | `Mode` | resolved config | Per-object mode override (wins over scope and global) |
-| `captureStack` | `boolean` | resolved config (`true`) | Capture stack on violation errors |
+| Field          | Type                               | Default                                    | Meaning                                               |
+| -------------- | ---------------------------------- | ------------------------------------------ | ----------------------------------------------------- |
+| `invariant`    | `readonly ObjectInvariant<Self>[]` | `[]`                                       | Invariants checked at the three boundaries            |
+| `name`         | `string`                           | target's constructor name, else `'object'` | Contract name in violation reports                    |
+| `mode`         | `Mode`                             | resolved config                            | Per-object mode override (wins over scope and global) |
+| `captureStack` | `boolean`                          | resolved config (`true`)                   | Capture stack on violation errors                     |
 
 `ObjectInvariant<Self>` is `NamedCondition<[Self]> | ((self: Self) => unknown)`. Named conditions use their `check(self)` (and their `message` feeds the violation); bare predicates pass on any truthy value. `conditionName` in the error is the named condition's name, or the bare predicate's `function.name`, or `'anonymous'`.
 
@@ -71,10 +71,10 @@ ada.balance = -50; // write applied, then InvariantViolationError ('<set>')
 - **Accessors** run with the wrapper as receiver.
 - **`instanceof` works** — the proxy shares the target's prototype chain.
 - **The wrapper is a new identity** (`wrapper !== target`) but is typed as `T`. Documented lie: same shape, different identity. If you rely on identity comparisons (`===` between two references to "the same object"), normalize before wrapping or keep the wrapper.
-- **`methodDepth` accounting.** Writes performed *inside* a wrapped method do not report per-assignment — the invariant is checked once, when the method settles. A method assigning to three fields produces exactly one report, not three.
+- **`methodDepth` accounting.** Writes performed _inside_ a wrapped method do not report per-assignment — the invariant is checked once, when the method settles. A method assigning to three fields produces exactly one report, not three.
 - **Re-entrancy** is guarded: if an invariant predicate itself writes to the wrapper (don't do this), the recursive check is suppressed; the outer boundary reports whatever it sees.
-- **Async methods**: the check fires in `.then` on settle (fulfill *and* reject). In `strict` mode a violating fulfill rejects the derived promise with `InvariantViolationError`; the method's own error (on reject) is preserved as `cause`.
-- **Nested objects are not wrapped.** Writing to `wrapper.nested.field = x` bypasses the invariant and is caught at the *next* boundary on the outer object (or never, if the outer object sees no further activity). Wrap nested objects explicitly if they need their own invariants.
+- **Async methods**: the check fires in `.then` on settle (fulfill _and_ reject). In `strict` mode a violating fulfill rejects the derived promise with `InvariantViolationError`; the method's own error (on reject) is preserved as `cause`.
+- **Nested objects are not wrapped.** Writing to `wrapper.nested.field = x` bypasses the invariant and is caught at the _next_ boundary on the outer object (or never, if the outer object sees no further activity). Wrap nested objects explicitly if they need their own invariants.
 - **Class instances with `#private` fields are unsupported.** Private brand checks fail through a Proxy — the method call throws a `TypeError` about private fields. Use regular `private` or no privacy for contracted classes.
 - **Symbol keys work.** Violations report them as `Symbol(description)`.
 - **Sparse invariant arrays**: holes are skipped; `conditionIndex` remains the honest index into the original `invariant` array.
@@ -84,9 +84,12 @@ ada.balance = -50; // write applied, then InvariantViolationError ('<set>')
 Predicate exceptions propagate unwrapped (same rule as everywhere in the library):
 
 ```ts
-const bad = condition(() => {
-    throw new Error('db gone');
-}, { name: 'db check' });
+const bad = condition(
+    () => {
+        throw new Error('db gone');
+    },
+    { name: 'db check' },
+);
 
 contractObject(obj, { invariant: [bad] }); // throws Error('db gone'), not a violation error
 ```
@@ -95,7 +98,7 @@ Write predicates that only read state and compute a boolean. Anything heavier ha
 
 ## Multiple invariants
 
-All invariants run on every boundary. The *first* failing one (by array index) is reported; indexes are honest even with sparse arrays. In `warn` mode you get one `onViolation` per boundary, not per failing invariant.
+All invariants run on every boundary. The _first_ failing one (by array index) is reported; indexes are honest even with sparse arrays. In `warn` mode you get one `onViolation` per boundary, not per failing invariant.
 
 ## Deep example: sort invariant
 
@@ -114,8 +117,7 @@ class SortedList<T> {
 }
 
 const sorted = condition(
-    (self: SortedList<number>) =>
-        self.items.every((v, i) => i === 0 || self.items[i - 1]! <= v),
+    (self: SortedList<number>) => self.items.every((v, i) => i === 0 || self.items[i - 1]! <= v),
     { name: 'items sorted', message: 'items must remain in ascending order' },
 );
 
@@ -127,7 +129,7 @@ list.insert(4);
 list.items.push(0); // direct write → caught at the '<set>' boundary? NO — push mutates in place.
 ```
 
-> **Important**: in-place mutation of a referenced object (`push`, `sort`, `map[i] = x`) is invisible to the `set` trap. The invariant catches up at the *next method settle* on this wrapper, or you catch nothing if no further contracted call happens. For containers, prefer methods that go through the wrapper — and prefer post-method invariants over write-traps for exactly this reason.
+> **Important**: in-place mutation of a referenced object (`push`, `sort`, `map[i] = x`) is invisible to the `set` trap. The invariant catches up at the _next method settle_ on this wrapper, or you catch nothing if no further contracted call happens. For containers, prefer methods that go through the wrapper — and prefer post-method invariants over write-traps for exactly this reason.
 
 ## When to reach for `contractObject`
 

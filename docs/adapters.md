@@ -36,7 +36,7 @@ Emitted shape:
 ```ts
 logger.error(
     {
-        err: violation,            // the ContractViolationError itself
+        err: violation, // the ContractViolationError itself
         kind: 'postcondition',
         mode: 'audit',
         contractName: 'fetchUser',
@@ -51,11 +51,11 @@ logger.error(
 
 Options (`PinoAdapterOptions`):
 
-| Option | Default | Meaning |
-| --- | --- | --- |
-| `level` | `'error'` (violations), `'warn'` (audit) | Level to emit on |
-| `includeContext` | `false` | Attach the sanitized context under `context` |
-| `childBindings` | — | Bind a child logger with these bindings **at creation time** (requires `.child()` — `TypeError` otherwise) and emit through it |
+| Option           | Default                                  | Meaning                                                                                                                        |
+| ---------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `level`          | `'error'` (violations), `'warn'` (audit) | Level to emit on                                                                                                               |
+| `includeContext` | `false`                                  | Attach the sanitized context under `context`                                                                                   |
+| `childBindings`  | —                                        | Bind a child logger with these bindings **at creation time** (requires `.child()` — `TypeError` otherwise) and emit through it |
 
 Missing or non-function `level` → `TypeError` at creation. A pino-like object that is not an object at all → `TypeError` at creation. Fail fast, never silently no-op.
 
@@ -114,12 +114,12 @@ configure({ onViolation: openTelemetryAdapter(fakeSpan) });
 
 Options (`OpenTelemetryAdapterOptions`):
 
-| Option | Default | Meaning |
-| --- | --- | --- |
-| `getActiveSpan` | — | Resolve the span per violation; takes precedence over an explicit span |
-| `span` | — | Explicit fallback span |
-| `includeContext` | `false` | Attach context under a `context` attribute (JSON string) |
-| `eventName` | `'design-contracts.violation'` / `'design-contracts.audit'` | Event name override |
+| Option           | Default                                                     | Meaning                                                                |
+| ---------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `getActiveSpan`  | —                                                           | Resolve the span per violation; takes precedence over an explicit span |
+| `span`           | —                                                           | Explicit fallback span                                                 |
+| `includeContext` | `false`                                                     | Attach context under a `context` attribute (JSON string)               |
+| `eventName`      | `'design-contracts.violation'` / `'design-contracts.audit'` | Event name override                                                    |
 
 Attributes are snake_case: `kind`, `mode`, `contract?`, `function?`, `condition_index?`, `condition_name?` (audit adds `duration_ms`, `timestamp`). Undefined fields are omitted.
 
@@ -157,10 +157,10 @@ configure({
 
 Channels and payloads:
 
-| Constant | Channel | Event |
-| --- | --- | --- |
+| Constant                      | Channel                      | Event                                   |
+| ----------------------------- | ---------------------------- | --------------------------------------- |
 | `CONTRACTS_VIOLATION_CHANNEL` | `design-contracts:violation` | `{ violation: ContractViolationError }` |
-| `CONTRACTS_AUDIT_CHANNEL` | `design-contracts:audit` | `{ record: AuditRecord }` |
+| `CONTRACTS_AUDIT_CHANNEL`     | `design-contracts:audit`     | `{ record: AuditRecord }`               |
 
 Custom channel names: `diagnosticsChannelAdapter('my-org:violation')` — blank/empty names throw `TypeError`. The same probe logic is exported for subscribers (`loadDiagnosticsChannel()`, `getViolationChannel()`, `getAuditChannel()`) if you cannot use static imports.
 
@@ -209,10 +209,15 @@ Keep it defensive: do not throw inside handlers (in `warn`/`audit` the runtime c
 `onViolation` is a single function — for fan-out, compose:
 
 ```ts
-const tee = (...handlers: Array<(error: ContractViolationError) => void>) =>
+const tee =
+    (...handlers: Array<(error: ContractViolationError) => void>) =>
     (error: ContractViolationError) => {
         for (const handler of handlers) {
-            try { handler(error); } catch (cause) { console.error(cause); }
+            try {
+                handler(error);
+            } catch (cause) {
+                console.error(cause);
+            }
         }
     };
 
@@ -229,6 +234,6 @@ configure({
 ```ts
 import { formatViolation, violationLogObject } from 'design-contracts/adapters';
 
-const line = formatViolation(error);          // one-line human string
-const meta = violationLogObject(error);       // { err, kind, mode, ... } for loggers
+const line = formatViolation(error); // one-line human string
+const meta = violationLogObject(error); // { err, kind, mode, ... } for loggers
 ```

@@ -4,13 +4,13 @@
 
 ## Reference table
 
-| Mode | Predicates run? | On violation | Handlers called? | Typical use |
-| --- | --- | --- | --- | --- |
-| `strict` | yes | throw the violation error | no | development, CI, critical paths |
-| `warn` | yes | report, continue execution | `onViolation` (else one-line `console.warn`) | staging, gradual rollout |
-| `silent` | **no** | nothing — completely ignored | no | emergency kill switch, zero predicate cost |
-| `audit` | yes | emit an `AuditRecord`, continue | `onAudit` (and `onViolation` if set) | production telemetry |
-| `off` | **no** | nothing — bare `fn.apply` fast path | no | production with compile-time define |
+| Mode     | Predicates run? | On violation                        | Handlers called?                             | Typical use                                |
+| -------- | --------------- | ----------------------------------- | -------------------------------------------- | ------------------------------------------ |
+| `strict` | yes             | throw the violation error           | no                                           | development, CI, critical paths            |
+| `warn`   | yes             | report, continue execution          | `onViolation` (else one-line `console.warn`) | staging, gradual rollout                   |
+| `silent` | **no**          | nothing — completely ignored        | no                                           | emergency kill switch, zero predicate cost |
+| `audit`  | yes             | emit an `AuditRecord`, continue     | `onAudit` (and `onViolation` if set)         | production telemetry                       |
+| `off`    | **no**          | nothing — bare `fn.apply` fast path | no                                           | production with compile-time define        |
 
 The one non-obvious property: **`silent` and `off` do not evaluate predicates.** "Skip" means skip — no wasted work and no accidental side effects inside predicates. Contrast with "evaluate, catch, swallow", which is strictly worse and is deliberately not how this library behaves.
 
@@ -21,11 +21,11 @@ Three layers, highest priority first:
 ```ts
 import { contract, withConfig, configure } from 'design-contracts';
 
-const fn = contract(impl, { mode: 'warn' });   // 1. per-contract
+const fn = contract(impl, { mode: 'warn' }); // 1. per-contract
 
-withConfig({ mode: 'audit' }, () => fn());      // 2. scoped (ALS)
+withConfig({ mode: 'audit' }, () => fn()); // 2. scoped (ALS)
 
-configure({ mode: 'strict' });                  // 3. global
+configure({ mode: 'strict' }); // 3. global
 ```
 
 …and below the global layer, the environment:
@@ -151,7 +151,7 @@ configure({ mode: 'off' });
 
 ```ts
 const fragile = contract(impl, { mode: 'strict' }); // always strict, even under configure({ mode: 'off' })
-const noisy   = contract(impl, { mode: 'warn' });   // always warn
+const noisy = contract(impl, { mode: 'warn' }); // always warn
 ```
 
 ## Scoped mode with `withConfig`
@@ -162,9 +162,9 @@ const noisy   = contract(impl, { mode: 'warn' });   // always warn
 import { withConfig } from 'design-contracts';
 
 const rows = await withConfig({ mode: 'audit', onAudit: ship }, async () => {
-    const data = await load();       // contracts inside see audit mode
-    await enrich(data);              // across awaits, too
-    return data;                     // scope ends here
+    const data = await load(); // contracts inside see audit mode
+    await enrich(data); // across awaits, too
+    return data; // scope ends here
 });
 ```
 
@@ -175,10 +175,10 @@ Nested scopes compose outer→inner; inner wins per field. The config is snapsho
 A healthy production setup is usually layered:
 
 ```ts
-configure({ mode: 'audit', onAudit: ship });   // default: observe everything
+configure({ mode: 'audit', onAudit: ship }); // default: observe everything
 
-const reconcile = contract(reconcileImpl, { mode: 'strict' });  // this one is proven — keep it loud
-const legacyCharge = contract(chargeImpl, { mode: 'silent' });    // legacy path, known-noisy contract
+const reconcile = contract(reconcileImpl, { mode: 'strict' }); // this one is proven — keep it loud
+const legacyCharge = contract(chargeImpl, { mode: 'silent' }); // legacy path, known-noisy contract
 ```
 
 ## Mode resolution cheat sheet

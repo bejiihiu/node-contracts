@@ -1,4 +1,5 @@
-import { describe, expect, it, vi, afterEach } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { ConditionFailure, NamedCondition } from '../src/index.js';
 import {
     all,
     any,
@@ -8,7 +9,6 @@ import {
     safeSerialize,
     sanitize,
 } from '../src/index.js';
-import type { ConditionFailure, NamedCondition } from '../src/index.js';
 
 afterEach(() => {
     vi.restoreAllMocks();
@@ -26,14 +26,12 @@ describe('condition() — creation and name/id resolution', () => {
     });
 
     it('falls back to predicate.name and then to anonymous', () => {
-        expect(condition(function helperPredicate(): boolean {
-            return true;
-        }).name).toBe('helperPredicate');
         expect(
-            condition(function (): boolean {
+            condition(function helperPredicate(): boolean {
                 return true;
             }).name,
-        ).toBe('anonymous');
+        ).toBe('helperPredicate');
+        expect(condition((): boolean => true).name).toBe('anonymous');
     });
 
     it('explicit name with surrounding whitespace is trimmed; blank falls back', () => {
@@ -109,7 +107,10 @@ describe('condition() — check() semantics', () => {
 
 describe('all()', () => {
     it('passes when every child passes', () => {
-        const cond = all(condition(() => true, { name: 'a' }), () => true);
+        const cond = all(
+            condition(() => true, { name: 'a' }),
+            () => true,
+        );
         expect(cond.check()).toBe(true);
         expect(cond.lastFailure).toBeUndefined();
     });
@@ -146,7 +147,10 @@ describe('all()', () => {
             condition(() => false, { name: 'innerFail' }),
             condition(() => true, { name: 'innerPass' }),
         );
-        const outer = all(inner, condition(() => true, { name: 'outerPass' }));
+        const outer = all(
+            inner,
+            condition(() => true, { name: 'outerPass' }),
+        );
         expect(outer.check()).toBe(false);
         const outerFailure = failureOf(outer as NamedCondition<unknown[]>);
         expect(outerFailure?.operator).toBe('all');
@@ -164,7 +168,10 @@ describe('any()', () => {
     it('passes on the first truthy child and stops evaluating later children', () => {
         const first = vi.fn(() => true);
         const second = vi.fn(() => true);
-        const cond = any(condition(first, { name: 'first' }), condition(second, { name: 'second' }));
+        const cond = any(
+            condition(first, { name: 'first' }),
+            condition(second, { name: 'second' }),
+        );
         expect(cond.check()).toBe(true);
         expect(first).toHaveBeenCalledTimes(1);
         expect(second).not.toHaveBeenCalled();
@@ -235,14 +242,20 @@ describe('not()', () => {
 describe('composites — names and nesting', () => {
     it('composite name lists child names: all(a, b) and any(a)', () => {
         expect(
-            all(condition(() => true, { name: 'a' }), condition(() => true, { name: 'b' })).name,
+            all(
+                condition(() => true, { name: 'a' }),
+                condition(() => true, { name: 'b' }),
+            ).name,
         ).toBe('all(a, b)');
         expect(any(condition(() => true, { name: 'solo' })).name).toBe('any(solo)');
         expect(not(condition(() => true, { name: 'x' })).name).toBe('not(x)');
     });
 
     it('nested composite names nest readably', () => {
-        const inner = any(condition(() => true, { name: 'x' }), condition(() => true, { name: 'y' }));
+        const inner = any(
+            condition(() => true, { name: 'x' }),
+            condition(() => true, { name: 'y' }),
+        );
         const outer = all(inner, not(condition(() => true, { name: 'z' })));
         expect(inner.name).toBe('any(x, y)');
         expect(outer.name).toBe('all(any(x, y), not(z))');
@@ -250,8 +263,14 @@ describe('composites — names and nesting', () => {
 
     it('finds the failing leaf through nested composite structure', () => {
         const leaf = condition(() => false, { name: 'leafFail' });
-        const inner = any(leaf, condition(() => false, { name: 'innerFail2' }));
-        const outer = all(condition(() => true, { name: 'outerOk' }), inner);
+        const inner = any(
+            leaf,
+            condition(() => false, { name: 'innerFail2' }),
+        );
+        const outer = all(
+            condition(() => true, { name: 'outerOk' }),
+            inner,
+        );
         expect(outer.check()).toBe(false);
         const outerFailure = failureOf(outer as NamedCondition<unknown[]>);
         expect(outerFailure?.index).toBe(1);
@@ -305,7 +324,10 @@ describe('ConditionInput — bare predicates normalize', () => {
         function bareOk(): boolean {
             return true;
         }
-        const cond = all(bareOk, condition(() => true, { name: 'named' }));
+        const cond = all(
+            bareOk,
+            condition(() => true, { name: 'named' }),
+        );
         expect(cond.components).toHaveLength(2);
         expect(isNamedCondition(cond.components?.[0])).toBe(true);
         expect(cond.components?.[0]?.name).toBe('bareOk');
@@ -353,9 +375,16 @@ describe('sanitize / safeSerialize', () => {
     });
 
     it('Maps past maxItems report an overflow count', () => {
-        const out = sanitize(new Map([[1, 'a'], [2, 'b'], [3, 'c']]), {
-            maxItems: 2,
-        }) as Record<string, unknown>;
+        const out = sanitize(
+            new Map([
+                [1, 'a'],
+                [2, 'b'],
+                [3, 'c'],
+            ]),
+            {
+                maxItems: 2,
+            },
+        ) as Record<string, unknown>;
         expect(out['type']).toBe('Map');
         expect(out['size']).toBe(3);
         expect(out['overflow']).toBe(1);

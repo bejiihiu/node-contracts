@@ -2,13 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     AssertionViolationError,
     ContractViolationError,
+    condition,
+    configure,
+    contract,
     InvariantViolationError,
     OnErrorViolationError,
     PostconditionViolationError,
     PreconditionViolationError,
-    condition,
-    configure,
-    contract,
     resetConfig,
 } from '../src/index.js';
 

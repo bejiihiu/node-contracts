@@ -47,7 +47,13 @@ export function hostConsole(): ConsoleLike {
     const warn = (candidate as { warn?: unknown }).warn;
     const error = (candidate as { error?: unknown }).error;
     return {
-        warn: typeof warn === 'function' ? (warn as (...args: unknown[]) => void).bind(candidate) : noop,
-        error: typeof error === 'function' ? (error as (...args: unknown[]) => void).bind(candidate) : noop,
+        warn:
+            typeof warn === 'function'
+                ? (warn as (...args: unknown[]) => void).bind(candidate)
+                : noop,
+        error:
+            typeof error === 'function'
+                ? (error as (...args: unknown[]) => void).bind(candidate)
+                : noop,
     };
 }

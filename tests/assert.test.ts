@@ -1,9 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-    AssertionViolationError,
-    ContractViolationError,
-    assert,
-} from '../src/index.js';
+import { AssertionViolationError, assert, ContractViolationError } from '../src/index.js';
 
 afterEach(() => {
     vi.restoreAllMocks();

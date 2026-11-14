@@ -1,25 +1,27 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { AuditRecord, ContractContext, OldValues } from '../src/index.js';
 import {
+    AssertionViolationError,
     all,
     any,
     assert,
-    condition,
-    contract,
-    configure,
-    resetConfig,
-    withConfig,
-    AssertionViolationError,
     ContractViolationError,
+    condition,
+    configure,
+    contract,
     OnErrorViolationError,
     PostconditionViolationError,
     PreconditionViolationError,
+    resetConfig,
+    withConfig,
 } from '../src/index.js';
-import type { AuditRecord, ContractContext, OldValues } from '../src/index.js';
 
 // the repo compiles without ambient node types, so reach console structurally
-const testConsole = (globalThis as unknown as {
-    console: { warn(...args: unknown[]): void; error(...args: unknown[]): void };
-}).console;
+const testConsole = (
+    globalThis as unknown as {
+        console: { warn(...args: unknown[]): void; error(...args: unknown[]): void };
+    }
+).console;
 
 const catchError = (run: () => unknown): unknown => {
     try {
@@ -56,7 +58,9 @@ describe('contract()', () => {
                 calls += 1;
                 return divide(a, b);
             };
-            const safeDivide = contract(countingDivide, { pre: [(_a: number, b: number) => b !== 0] });
+            const safeDivide = contract(countingDivide, {
+                pre: [(_a: number, b: number) => b !== 0],
+            });
 
             const caught = catchError(() => safeDivide(10, 0));
 
@@ -117,7 +121,11 @@ describe('contract()', () => {
             expect(caught).toBeInstanceOf(PreconditionViolationError);
             const error = caught as PreconditionViolationError;
             expect(error.conditionName).toBe('all(positive, small)');
-            expect(error.cause).toMatchObject({ operator: 'all', index: 0, conditionName: 'positive' });
+            expect(error.cause).toMatchObject({
+                operator: 'all',
+                index: 0,
+                conditionName: 'positive',
+            });
         });
 
         it('evaluates composite any() conditions and reports all children on failure', () => {

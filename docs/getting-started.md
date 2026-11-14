@@ -60,7 +60,7 @@ What happened on that failing call?
 3. The default enforcement mode is `strict`, so the wrapper threw a
    `PreconditionViolationError` and **the body never executed**.
 
-The postcondition `(result) => Number.isFinite(result)` is checked after the body returns (or, for async functions, after the promise resolves — the postcondition sees the *resolved* value, never a raw promise).
+The postcondition `(result) => Number.isFinite(result)` is checked after the body returns (or, for async functions, after the promise resolves — the postcondition sees the _resolved_ value, never a raw promise).
 
 See [examples/01-basic.ts](../examples/01-basic.ts) for a complete runnable version, and [examples/02-async.ts](../examples/02-async.ts) for async contracts.
 
@@ -170,13 +170,13 @@ If your decorators come from the legacy `experimentalDecorators` pipeline instea
 
 By default (`strict` mode), a contract violation throws a dedicated error class. The error hierarchy is:
 
-| Error class | Raised when |
-| --- | --- |
-| `PreconditionViolationError` | a `pre` predicate returned falsy before `fn` ran |
-| `PostconditionViolationError` | a `post` predicate returned falsy after `fn` settled |
-| `InvariantViolationError` | an object invariant (via `contractObject`) did not hold |
-| `AssertionViolationError` | `assert()` / `assert.fail()` was triggered |
-| `OnErrorViolationError` | an `onError` predicate failed while `fn` was throwing |
+| Error class                   | Raised when                                             |
+| ----------------------------- | ------------------------------------------------------- |
+| `PreconditionViolationError`  | a `pre` predicate returned falsy before `fn` ran        |
+| `PostconditionViolationError` | a `post` predicate returned falsy after `fn` settled    |
+| `InvariantViolationError`     | an object invariant (via `contractObject`) did not hold |
+| `AssertionViolationError`     | `assert()` / `assert.fail()` was triggered              |
+| `OnErrorViolationError`       | an `onError` predicate failed while `fn` was throwing   |
 
 All of them extend `ContractViolationError`, so a single `catch (error instanceof ContractViolationError)` handles everything. Each carries structured fields (`kind`, `contractName`, `functionName`, `conditionIndex`, `conditionName`) and is safe to log via `toJSON()`. See [errors.md](./errors.md) for the full reference.
 

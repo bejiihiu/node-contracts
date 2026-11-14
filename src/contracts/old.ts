@@ -33,9 +33,7 @@
  *   into `old`. Full control; values are used exactly as returned (wrap mutable
  *   objects yourself if you want a copy, e.g. via {@link captureValue}).
  */
-export type OldSpec =
-    | readonly string[]
-    | ((args: readonly unknown[]) => Record<string, unknown>);
+export type OldSpec = readonly string[] | ((args: readonly unknown[]) => Record<string, unknown>);
 
 /**
  * Frozen view of captured pre-call values handed to postconditions.

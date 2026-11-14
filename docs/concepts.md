@@ -6,11 +6,11 @@ Design by Contract (DbC) is a discipline where a unit of code declares — in th
 
 Every contracted function can state three things:
 
-1. **Preconditions** — what must be true *before* it runs. The caller's responsibility, checked at the boundary, before the body executes. `pre: [(amount) => amount > 0]`
-2. **Postconditions** — what will be true *after* it runs. The callee's responsibility, checked on the resolved result. `post: [(result) => result >= 0]`
-3. **Invariants** — what must remain true *throughout*. For objects, via `contractObject()`: checked when the object is created, after every method settles, and after every direct property write.
+1. **Preconditions** — what must be true _before_ it runs. The caller's responsibility, checked at the boundary, before the body executes. `pre: [(amount) => amount > 0]`
+2. **Postconditions** — what will be true _after_ it runs. The callee's responsibility, checked on the resolved result. `post: [(result) => result >= 0]`
+3. **Invariants** — what must remain true _throughout_. For objects, via `contractObject()`: checked when the object is created, after every method settles, and after every direct property write.
 
-Plus **assertions** (`assert`, `assert.fail`) for internal claims that should never be false — "we already validated this upstream", "this branch is unreachable". And **on-error conditions** (`onError`) for when the contract of *failing* matters: "if this throws, it must throw a `DatabaseError`".
+Plus **assertions** (`assert`, `assert.fail`) for internal claims that should never be false — "we already validated this upstream", "this branch is unreachable". And **on-error conditions** (`onError`) for when the contract of _failing_ matters: "if this throws, it must throw a `DatabaseError`".
 
 ```ts
 import { contract } from 'design-contracts';
@@ -31,21 +31,21 @@ const withdraw = contract(
 
 This is a deliberate design constraint: a contract is **not** a type-level construct. `contract()` returns a function with the same runtime shape and the same TypeScript signature as the wrapped function. No generics are added, no wrapper types leak into your call sites, no type-level machinery is required to use it.
 
-The trade-off: the compiler does not know contracts exist, so `divide(10, 0)` *compiles fine*. Contract violations are **runtime** events. This is the point — they catch the gap between what types can express and what values actually flow through your program.
+The trade-off: the compiler does not know contracts exist, so `divide(10, 0)` _compiles fine_. Contract violations are **runtime** events. This is the point — they catch the gap between what types can express and what values actually flow through your program.
 
 ## Contracts vs validation (Zod)
 
-The most common misconception: *"Isn't this just Zod?"* No — they solve different problems, and the positioning matters:
+The most common misconception: _"Isn't this just Zod?"_ No — they solve different problems, and the positioning matters:
 
-| | Zod & co. | design-contracts |
-| --- | --- | --- |
-| Direction | Edge → inside (parse untrusted input at the boundary) | Inside → inside (code making promises to itself) |
-| When it runs | Once, at the boundary | Every call, as long as checks are enabled |
-| Failure means | "This input is unacceptable" | "This part of the system broke its own promise" |
-| Typical type | Schema describing data shape | Predicate describing behavioral truth |
-| Cost model | Paid at the edge | Paid per call — see [benchmarks.md](./benchmarks.md) |
+|               | Zod & co.                                             | design-contracts                                     |
+| ------------- | ----------------------------------------------------- | ---------------------------------------------------- |
+| Direction     | Edge → inside (parse untrusted input at the boundary) | Inside → inside (code making promises to itself)     |
+| When it runs  | Once, at the boundary                                 | Every call, as long as checks are enabled            |
+| Failure means | "This input is unacceptable"                          | "This part of the system broke its own promise"      |
+| Typical type  | Schema describing data shape                          | Predicate describing behavioral truth                |
+| Cost model    | Paid at the edge                                      | Paid per call — see [benchmarks.md](./benchmarks.md) |
 
-Zod answers *"can I trust this value from outside?"* Contracts answer *"is this part of my code healthy?"* A Zod schema validates that the HTTP body is a well-formed `CreateUser`. A contract on `CreditLedger.post` proves the ledger never double-spends. You want both, at different layers.
+Zod answers _"can I trust this value from outside?"_ Contracts answer _"is this part of my code healthy?"_ A Zod schema validates that the HTTP body is a well-formed `CreateUser`. A contract on `CreditLedger.post` proves the ledger never double-spends. You want both, at different layers.
 
 A practical rule of thumb:
 

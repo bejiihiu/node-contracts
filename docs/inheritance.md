@@ -4,12 +4,12 @@ Design by Contract's answer to inheritance, implemented and enforced by this lib
 
 ## The rules
 
-| Section | Rule | Why |
-| --- | --- | --- |
-| Preconditions | Derived may **weaken**, never strengthen | Callers that satisfy the base precondition must not be rejected by the derived one |
-| Postconditions | Derived may **add**, never drop | Callers may rely on the base postcondition after any call |
-| Invariants | Base invariants are **preserved** | The derived object is an instance of the base — its laws travel with it |
-| Error contracts | Derived unions onto base | The set of legal failures may only shrink, never grow |
+| Section         | Rule                                     | Why                                                                                |
+| --------------- | ---------------------------------------- | ---------------------------------------------------------------------------------- |
+| Preconditions   | Derived may **weaken**, never strengthen | Callers that satisfy the base precondition must not be rejected by the derived one |
+| Postconditions  | Derived may **add**, never drop          | Callers may rely on the base postcondition after any call                          |
+| Invariants      | Base invariants are **preserved**        | The derived object is an instance of the base — its laws travel with it            |
+| Error contracts | Derived unions onto base                 | The set of legal failures may only shrink, never grow                              |
 
 ## Precondition disjunction — the truth table
 
@@ -17,14 +17,14 @@ Design by Contract's answer to inheritance, implemented and enforced by this lib
 
 > **effective pre = ALL(base.pre) OR ALL(derived.pre)**
 
-That is, the merged contract passes if the *whole* base side is satisfied, or the *whole* derived side is. It is never stronger than the base alone — base-typed callers are never newly rejected.
+That is, the merged contract passes if the _whole_ base side is satisfied, or the _whole_ derived side is. It is never stronger than the base alone — base-typed callers are never newly rejected.
 
-| base.pre (all) | derived.pre (all) | effective | Call proceeds? |
-| --- | --- | --- | --- |
-| true | true | true | yes |
-| true | false | true | yes (base rescues) |
-| false | true | true | yes (derived rescues) |
-| false | false | false | **no — throws** |
+| base.pre (all) | derived.pre (all) | effective | Call proceeds?        |
+| -------------- | ----------------- | --------- | --------------------- |
+| true           | true              | true      | yes                   |
+| true           | false             | true      | yes (base rescues)    |
+| false          | true              | true      | yes (derived rescues) |
+| false          | false             | false     | **no — throws**       |
 
 This matches Eiffel's rule and it is exactly what `mergeContractOptions` builds: a single `any(all(...base.pre), all(...derived.pre))` disjunction. Note the all-or-nothing property per side — a partially satisfied base side does not count as a rescue.
 
@@ -32,7 +32,7 @@ This matches Eiffel's rule and it is exactly what `mergeContractOptions` builds:
 
 > **effective post = [...base.post, ...derived.post]**
 
-All of them must hold; a base-post failure reports `conditionIndex` within the *merged* list (base entries keep indices `0..base.length-1`, derived entries follow). Order of evaluation is base-first; failures short-circuit at the first falsy predicate.
+All of them must hold; a base-post failure reports `conditionIndex` within the _merged_ list (base entries keep indices `0..base.length-1`, derived entries follow). Order of evaluation is base-first; failures short-circuit at the first falsy predicate.
 
 ## Other fields
 
@@ -66,9 +66,9 @@ class LoudNotifier extends Notifier {
 }
 
 const notifier = new LoudNotifier();
-notifier.save('loud: hello');  // derived pre passes → call proceeds
-notifier.save('quiet hello');  // derived pre fails; base pre passes → base side of the disjunction rescues
-notifier.save('');             // both sides fail → PreconditionViolationError
+notifier.save('loud: hello'); // derived pre passes → call proceeds
+notifier.save('quiet hello'); // derived pre fails; base pre passes → base side of the disjunction rescues
+notifier.save(''); // both sides fail → PreconditionViolationError
 ```
 
 Mechanics and edge cases (documented behavior, stable):
@@ -77,7 +77,7 @@ Mechanics and edge cases (documented behavior, stable):
 - The base member need not be decorated — any element carrying contract metadata is picked up the same way. If the nearest same-name ancestor carries none, the walk continues upward (nearest-ancestor-wins at each level).
 - This works at call time, so **no class-evaluation or `addInitializer` ordering is involved** — the behavior is identical on every engine and for multi-level hierarchies.
 - `getContractMetadata()` on the merged wrapper reports provisional (own-only) options until the first call, and the fully merged options afterwards — matters if you introspect metadata for grandchildren.
-- **Extracted members** called on the owning receiver merge normally (`const m = obj.save; m.call(obj)`); extracted members called on a *foreign* receiver fall back to their own contract only.
+- **Extracted members** called on the owning receiver merge normally (`const m = obj.save; m.call(obj)`); extracted members called on a _foreign_ receiver fall back to their own contract only.
 - **Private members** are never merged.
 - **Getters/setters** merge with same-kind members only (`getter ≠ setter ≠ method`). Setter `pre` receives the assigned value; getter `pre` is forbidden entirely (zero-argument member, nothing to check — it throws `TypeError` at class-definition time).
 - Instance arrow-function fields are per-instance and do not participate in prototype-chain merging; static arrow-function fields on constructors **do** merge against the constructor chain.
@@ -90,11 +90,17 @@ For hand-written prototype methods wrapped in `contract()` without decorators:
 ```ts
 import { contract, mergeClassContracts } from 'design-contracts';
 
-class Base { save(payload: string): boolean { return true; } }
+class Base {
+    save(payload: string): boolean {
+        return true;
+    }
+}
 const contractedBase = Base.prototype.save; // wrap it somehow first
 
 class Derived extends Base {
-    override save(payload: string): boolean { return true; }
+    override save(payload: string): boolean {
+        return true;
+    }
 }
 
 mergeClassContracts(Derived); // walks Derived.prototype against nearest contracted ancestors
@@ -123,7 +129,7 @@ const merged = mergeContractOptions(baseOptions, derivedOptions);
 
 Semantics, exactly:
 
-- `pre`: both sides non-empty → `[any(all(...base.pre), all(...derived.pre))]`; one-sided lists pass through verbatim (same reference); empty/sparse arrays are compacted first. If *base* is absent, `derived.pre` is verbatim — strengthening over nothing is the caller's choice.
+- `pre`: both sides non-empty → `[any(all(...base.pre), all(...derived.pre))]`; one-sided lists pass through verbatim (same reference); empty/sparse arrays are compacted first. If _base_ is absent, `derived.pre` is verbatim — strengthening over nothing is the caller's choice.
 - `post` / `onError`: `[...base, ...derived]`, base first.
 - `old` / `mode` / `name` / `captureStack` / `message`: `derived ?? base`.
 - Both absent → `undefined`; exactly one side defined → the **same reference** is returned; both defined → a new object is returned.
@@ -132,9 +138,21 @@ Semantics, exactly:
 ## Deep hierarchies
 
 ```ts
-class Grand { @contractMethod({ post: [isPositive] })   total(): number { return 1; } }
-class Mid   extends Grand { @contractMethod({ post: [isInteger] }) override total() { return 2; } }
-class Leaf  extends Mid   { @contractMethod({ post: [isFinite] })  override total() { return 3; } }
+class Grand {
+    @contractMethod({ post: [isPositive] }) total(): number {
+        return 1;
+    }
+}
+class Mid extends Grand {
+    @contractMethod({ post: [isInteger] }) override total() {
+        return 2;
+    }
+}
+class Leaf extends Mid {
+    @contractMethod({ post: [isFinite] }) override total() {
+        return 3;
+    }
+}
 ```
 
 After the first call on a `Leaf`, the effective post list is `[isPositive, isInteger, isFinite]` (grandparent first) — call-time recursion accumulates fully merged views bottom-up, independent of call order or construction order.
@@ -144,10 +162,10 @@ After the first call on a `Leaf`, the effective post list is `[isPositive, isInt
 ```ts
 import { getContractMetadata, hasContractMetadata } from 'design-contracts';
 
-hasContractMetadata(someFn);          // true iff fn carries contract metadata
+hasContractMetadata(someFn); // true iff fn carries contract metadata
 const meta = getContractMetadata(someFn);
-meta?.name;                           // effective contract name
-meta?.options.post?.length;           // merged post list length
+meta?.name; // effective contract name
+meta?.options.post?.length; // merged post list length
 ```
 
 - `getContractMetadata(fn)` reads the wrapper's metadata. Before the first call on a decorator-wrapped method, this reports the own (provisional) options; after the first call, the fully merged ones.
@@ -156,9 +174,9 @@ meta?.options.post?.length;           // merged post list length
 
 ## Choosing a path
 
-| Situation | Path |
-| --- | --- |
-| New code, TypeScript, standard decorators | `@contractMethod` |
-| JS project or legacy decorators | `contract()` + `mergeClassContracts(Derived, Base?)` |
-| Fine-grained manual merges (e.g. generated code) | `mergeContractOptions` |
-| Migrating an existing prototype-based hierarchy | `mergeClassContracts` once, then leave it |
+| Situation                                        | Path                                                 |
+| ------------------------------------------------ | ---------------------------------------------------- |
+| New code, TypeScript, standard decorators        | `@contractMethod`                                    |
+| JS project or legacy decorators                  | `contract()` + `mergeClassContracts(Derived, Base?)` |
+| Fine-grained manual merges (e.g. generated code) | `mergeContractOptions`                               |
+| Migrating an existing prototype-based hierarchy  | `mergeClassContracts` once, then leave it            |

@@ -33,13 +33,13 @@ Installation instructions (npm, Bun, pnpm) and a first-working-example guide liv
 
 Contracts should not be an all-or-nothing decision. Every contract can run in one of five modes, configurable globally, per scope, or per contract — so you can roll contracts out to a critical service without gambling on day one.
 
-| Mode | Behavior |
-| --- | --- |
-| strict | A violated condition throws a typed error. This is the default outside production. |
-| warn | The violation is reported through your handler (or the console) and execution continues. |
-| silent | Predicates are not executed at all; violations are dropped. |
-| audit | Predicates run and violations are delivered as structured records to your telemetry, but nothing throws. Built for production. |
-| off | Checks are disabled entirely; predicates are never called, so disabled code costs nothing. |
+| Mode   | Behavior                                                                                                                       |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| strict | A violated condition throws a typed error. This is the default outside production.                                             |
+| warn   | The violation is reported through your handler (or the console) and execution continues.                                       |
+| silent | Predicates are not executed at all; violations are dropped.                                                                    |
+| audit  | Predicates run and violations are delivered as structured records to your telemetry, but nothing throws. Built for production. |
+| off    | Checks are disabled entirely; predicates are never called, so disabled code costs nothing.                                     |
 
 The modes documentation covers each one in depth, including rollout recipes and per-contract overrides: docs/modes.md.
 
@@ -49,21 +49,21 @@ Contracts are not free — every checked call pays for the wrapper and for the c
 
 ## Documentation
 
-| Page | What it covers |
-| --- | --- |
-| docs/getting-started.md | Install, first contract, what happens on a violation |
-| docs/concepts.md | The philosophy — contracts vs validation, when to use each |
-| docs/api.md | Complete API reference — contracts, conditions, assertions, decorators, config |
-| docs/errors.md | The error hierarchy, message format, and writing handlers |
-| docs/modes.md | The five enforcement modes in depth, plus rollout recipes |
-| docs/inheritance.md | Liskov rules, precondition disjunction, postcondition union |
-| docs/async.md | Async contracts, async predicates, thenables, concurrency |
-| docs/object-contracts.md | Invariants for objects and classes via proxies |
-| docs/adapters.md | pino, winston, OpenTelemetry, diagnostics_channel, and the console |
-| docs/benchmarks.md | Methodology, measured overhead, honest caveats |
-| docs/migration.md | Adding contracts to three critical functions in fifteen minutes |
-| docs/faq.md | Frequent questions — production safety, Zod, minification, decorators |
-| docs/index.md | The full documentation index |
+| Page                     | What it covers                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------ |
+| docs/getting-started.md  | Install, first contract, what happens on a violation                           |
+| docs/concepts.md         | The philosophy — contracts vs validation, when to use each                     |
+| docs/api.md              | Complete API reference — contracts, conditions, assertions, decorators, config |
+| docs/errors.md           | The error hierarchy, message format, and writing handlers                      |
+| docs/modes.md            | The five enforcement modes in depth, plus rollout recipes                      |
+| docs/inheritance.md      | Liskov rules, precondition disjunction, postcondition union                    |
+| docs/async.md            | Async contracts, async predicates, thenables, concurrency                      |
+| docs/object-contracts.md | Invariants for objects and classes via proxies                                 |
+| docs/adapters.md         | pino, winston, OpenTelemetry, diagnostics_channel, and the console             |
+| docs/benchmarks.md       | Methodology, measured overhead, honest caveats                                 |
+| docs/migration.md        | Adding contracts to three critical functions in fifteen minutes                |
+| docs/faq.md              | Frequent questions — production safety, Zod, minification, decorators          |
+| docs/index.md            | The full documentation index                                                   |
 
 Runnable, numbered examples covering the same ground live in examples/README.md — they run end to end and print what they do.
 

@@ -36,8 +36,8 @@ The export shape is unchanged — call sites don't need to know. Types are ident
 Choose the mode **per function**, not globally:
 
 ```ts
-const allocateStrict = contract(allocateImpl, { mode: 'strict' });  // house money — fail loud
-const reportFast     = contract(reportImpl,   { mode: 'audit', onAudit: shipToTelemetry }); // observe first
+const allocateStrict = contract(allocateImpl, { mode: 'strict' }); // house money — fail loud
+const reportFast = contract(reportImpl, { mode: 'audit', onAudit: shipToTelemetry }); // observe first
 ```
 
 A good default: `audit` for anything you have never seen hold in production before, `strict` for invariants you already trust.
@@ -62,16 +62,16 @@ later   → vitest expectations on violation paths; mergeClassContracts for clas
 
 ## Coming from test-only validation
 
-Tests are how you *check* a contract once; contracts are how you check it **every time in production**. They complement each other:
+Tests are how you _check_ a contract once; contracts are how you check it **every time in production**. They complement each other:
 
-| | Test assertion | Runtime contract |
-| --- | --- | --- |
-| When it runs | CI | every call |
-| Coverage | scenarios you thought of | every execution |
-| Failure mode | red build | throws / reports (mode-dependent) |
-| Cost | zero at runtime | per call (see [benchmarks.md](./benchmarks.md)) |
+|              | Test assertion           | Runtime contract                                |
+| ------------ | ------------------------ | ----------------------------------------------- |
+| When it runs | CI                       | every call                                      |
+| Coverage     | scenarios you thought of | every execution                                 |
+| Failure mode | red build                | throws / reports (mode-dependent)               |
+| Cost         | zero at runtime          | per call (see [benchmarks.md](./benchmarks.md)) |
 
-Migrate your *assertion vocabulary* first (`expect(x).toBeGreaterThan(0)` → `pre: [x => x > 0]`), then your critical fixtures become contracts. Keep the tests — they now guard the contracts themselves.
+Migrate your _assertion vocabulary_ first (`expect(x).toBeGreaterThan(0)` → `pre: [x => x > 0]`), then your critical fixtures become contracts. Keep the tests — they now guard the contracts themselves.
 
 ## Coming from Zod/schema validation
 

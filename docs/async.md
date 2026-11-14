@@ -97,12 +97,12 @@ Async scopes follow [AsyncLocalStorage](https://nodejs.org/api/async_context.htm
 import { withConfig, contract } from 'design-contracts';
 
 const audited = withConfig({ mode: 'audit', onAudit: ship }, () => processBatch(batch));
-const plain   = withConfig({ mode: 'off' },                () => processBatch(batch));
+const plain = withConfig({ mode: 'off' }, () => processBatch(batch));
 
 await Promise.all([audited(), plain()]); // each sees its own mode — never each other's
 ```
 
-- Configuration is snapshotted at wrapper entry; a `configure()` call made *during* an in-flight invocation is not observed by that invocation (documented "config snapshot semantics" — reconfiguring under a running call is racy by design).
+- Configuration is snapshotted at wrapper entry; a `configure()` call made _during_ an in-flight invocation is not observed by that invocation (documented "config snapshot semantics" — reconfiguring under a running call is racy by design).
 - Nested `withConfig` frames compose outer→inner with inner winning per field; both are visible across `await`s inside their extent.
 - On runtimes without `node:async_hooks` (exotic/edge hosts), the fallback is a synchronous stack only — scopes will not survive `await`. Node.js >= 18 and Bun both have AsyncLocalStorage.
 

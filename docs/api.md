@@ -27,16 +27,16 @@ const divide = contract(
 
 ### `ContractOptions`
 
-| Field | Type | Default | Meaning |
-| --- | --- | --- | --- |
-| `pre` | `readonly ConditionPredicate<A>[]` | `[]` | Preconditions, evaluated before `fn` runs, in declaration order |
-| `post` | `readonly PostPredicate<A, R>[]` | `[]` | Postconditions, evaluated after `fn` settles, in declaration order |
-| `onError` | `readonly ErrorPredicate<A, R>[]` | `[]` | Error conditions, evaluated only when `fn` throws or rejects |
-| `old` | `OldSpec` | — | Pre-call snapshot of arguments, exposed to `post` as `context.old` |
-| `name` | `string` | `fn.name`, else `'anonymous'` | Contract name used in violation messages and `ContractContext` |
-| `mode` | `Mode` | — (resolved from config) | Per-contract enforcement mode override |
-| `captureStack` | `boolean` | resolved `captureStack` (default `true`) | Capture a stack trace on violation errors |
-| `message` | `string` | — | Fallback user message; see precedence below |
+| Field          | Type                               | Default                                  | Meaning                                                            |
+| -------------- | ---------------------------------- | ---------------------------------------- | ------------------------------------------------------------------ |
+| `pre`          | `readonly ConditionPredicate<A>[]` | `[]`                                     | Preconditions, evaluated before `fn` runs, in declaration order    |
+| `post`         | `readonly PostPredicate<A, R>[]`   | `[]`                                     | Postconditions, evaluated after `fn` settles, in declaration order |
+| `onError`      | `readonly ErrorPredicate<A, R>[]`  | `[]`                                     | Error conditions, evaluated only when `fn` throws or rejects       |
+| `old`          | `OldSpec`                          | —                                        | Pre-call snapshot of arguments, exposed to `post` as `context.old` |
+| `name`         | `string`                           | `fn.name`, else `'anonymous'`            | Contract name used in violation messages and `ContractContext`     |
+| `mode`         | `Mode`                             | — (resolved from config)                 | Per-contract enforcement mode override                             |
+| `captureStack` | `boolean`                          | resolved `captureStack` (default `true`) | Capture a stack trace on violation errors                          |
+| `message`      | `string`                           | —                                        | Fallback user message; see precedence below                        |
 
 **Message precedence** when a violation is reported:
 
@@ -53,9 +53,7 @@ const divide = contract(
 ### `ConditionPredicate`
 
 ```ts
-type ConditionPredicate<A extends unknown[]> =
-    | NamedCondition<A>
-    | ((...args: A) => unknown);
+type ConditionPredicate<A extends unknown[]> = NamedCondition<A> | ((...args: A) => unknown);
 ```
 
 Named conditions are used as-is; bare predicates are normalized to named conditions **once**, at contract-creation time (never per call).
@@ -84,16 +82,16 @@ A falsy return means the failure itself broke its contract → `OnErrorViolation
 
 Passed as the second argument to postconditions and on-error predicates.
 
-| Field | Present | Meaning |
-| --- | --- | --- |
-| `args` | always | **Live reference** to the argument tuple the wrapper was called with. Spread it (`[...args]`) if you need a stable copy |
-| `contract` | always | The contract's name (`options.name`, else `fn.name`, else `'anonymous'`) |
-| `function` | always | The wrapped function's name (or `'anonymous'`) |
-| `self` | always | The `this` value of the call site (`undefined` for standalone calls) |
-| `mode` | always | The effective enforcement mode for this call |
-| `result` | `post` only | The resolved result |
-| `old` | `post` only | The pre-call snapshot (only when `old` was configured *and* `post` is non-empty *and* postconditions are not skipped) |
-| `error` | `onError` only | The error thrown/rejected by `fn` |
+| Field      | Present        | Meaning                                                                                                                 |
+| ---------- | -------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `args`     | always         | **Live reference** to the argument tuple the wrapper was called with. Spread it (`[...args]`) if you need a stable copy |
+| `contract` | always         | The contract's name (`options.name`, else `fn.name`, else `'anonymous'`)                                                |
+| `function` | always         | The wrapped function's name (or `'anonymous'`)                                                                          |
+| `self`     | always         | The `this` value of the call site (`undefined` for standalone calls)                                                    |
+| `mode`     | always         | The effective enforcement mode for this call                                                                            |
+| `result`   | `post` only    | The resolved result                                                                                                     |
+| `old`      | `post` only    | The pre-call snapshot (only when `old` was configured _and_ `post` is non-empty _and_ postconditions are not skipped)   |
+| `error`    | `onError` only | The error thrown/rejected by `fn`                                                                                       |
 
 ### Example: full pre/post/old/onError
 
@@ -130,7 +128,7 @@ const positive = condition((n: number) => n > 0, {
     message: 'value must be positive',
 });
 
-positive.check(5);  // true
+positive.check(5); // true
 positive.check(-1); // false
 positive.lastFailure;
 // { operator: 'condition', index: 0, conditionId: 'condition-1',
@@ -145,11 +143,11 @@ positive.lastFailure;
 
 ### `condition` options
 
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `name` | `string` | Display name used in errors and composite names |
-| `message` | `string` | User-facing message (highest precedence) |
-| `id` | `string` | Explicit stable id (instead of `condition-N`) |
+| Field     | Type     | Meaning                                         |
+| --------- | -------- | ----------------------------------------------- |
+| `name`    | `string` | Display name used in errors and composite names |
+| `message` | `string` | User-facing message (highest precedence)        |
+| `id`      | `string` | Explicit stable id (instead of `condition-N`)   |
 
 ### `all(...conditions)` / `any(...conditions)` / `not(condition)`
 
@@ -177,7 +175,7 @@ Type guard checking the realm-global `Symbol.for('design-contracts/named-conditi
 ```ts
 import { isNamedCondition } from 'design-contracts';
 
-isNamedCondition(positive);  // true
+isNamedCondition(positive); // true
 isNamedCondition((n: number) => n > 0); // false
 ```
 
@@ -188,11 +186,11 @@ isNamedCondition((n: number) => n > 0); // false
 ```ts
 interface ConditionFailure {
     operator: 'condition' | 'all' | 'any' | 'not';
-    index: number;               // failing child index; -1 for any() full-failure
-    conditionId: string;         // id of the failing composite/leaf
+    index: number; // failing child index; -1 for any() full-failure
+    conditionId: string; // id of the failing composite/leaf
     conditionName: string;
     message?: string;
-    cause?: ConditionFailure;    // chained child failure for composites
+    cause?: ConditionFailure; // chained child failure for composites
     components?: ConditionFailure[]; // per-child failures (any() only)
 }
 ```
@@ -281,14 +279,14 @@ The callback receives the raw argument array and returns a record. No implicit c
 
 `captureValue` snapshots one value with a documented strategy:
 
-| Value shape | How it is captured |
-| --- | --- |
-| Primitives, `symbol`, `undefined`, `bigint` | by value |
-| Arrays, plain objects, `Map`, `Set`, `Date` | deep clone via `structuredClone` (cycles included) |
-| Functions | live reference, tagged in a `WeakSet` |
-| Class instance containing a function member | live reference (clone would drop the function) + flagged |
-| Plain object containing a function member | shallow `{ ...value }`, **not** flagged |
-| Other non-cloneable graphs (DOM nodes, Proxies over hostile traps) | live reference + flagged |
+| Value shape                                                        | How it is captured                                       |
+| ------------------------------------------------------------------ | -------------------------------------------------------- |
+| Primitives, `symbol`, `undefined`, `bigint`                        | by value                                                 |
+| Arrays, plain objects, `Map`, `Set`, `Date`                        | deep clone via `structuredClone` (cycles included)       |
+| Functions                                                          | live reference, tagged in a `WeakSet`                    |
+| Class instance containing a function member                        | live reference (clone would drop the function) + flagged |
+| Plain object containing a function member                          | shallow `{ ...value }`, **not** flagged                  |
+| Other non-cloneable graphs (DOM nodes, Proxies over hostile traps) | live reference + flagged                                 |
 
 `isReferenceCapture(value)` returns `true` for values captured by live reference rather than by clone. It never throws.
 
@@ -312,9 +310,13 @@ For Liskov-style inheritance of contracts — the full story is in [inheritance.
 ```ts
 import { contract, mergeClassContracts } from 'design-contracts';
 
-mergeClassContracts(class Upper extends Lower {
-    override save = function save(payload: string) { /* ... */ };
-});
+mergeClassContracts(
+    class Upper extends Lower {
+        override save = function save(payload: string) {
+            /* ... */
+        };
+    },
+);
 ```
 
 ---
@@ -402,13 +404,13 @@ In `warn` and `audit` modes, exceptions thrown **by** your handlers are caught a
 
 ## Enforcement modes
 
-| Mode | Predicates executed? | On violation | Use for |
-| --- | --- | --- | --- |
-| `strict` | yes | throws the violation error; `fn` not called on pre-failure | development, CI, critical paths |
-| `warn` | yes | reports to `onViolation` (or one-line `console.warn`) and continues | gradual rollout, staging |
-| `silent` | **no** | ignored completely | kill switch with zero predicate cost |
-| `audit` | yes | emits an `AuditRecord` to `onAudit` (and `onViolation` if set), continues | production telemetry |
-| `off` | **no** | nothing — `fn.apply` fast path | production with compile-time stripping |
+| Mode     | Predicates executed? | On violation                                                              | Use for                                |
+| -------- | -------------------- | ------------------------------------------------------------------------- | -------------------------------------- |
+| `strict` | yes                  | throws the violation error; `fn` not called on pre-failure                | development, CI, critical paths        |
+| `warn`   | yes                  | reports to `onViolation` (or one-line `console.warn`) and continues       | gradual rollout, staging               |
+| `silent` | **no**               | ignored completely                                                        | kill switch with zero predicate cost   |
+| `audit`  | yes                  | emits an `AuditRecord` to `onAudit` (and `onViolation` if set), continues | production telemetry                   |
+| `off`    | **no**               | nothing — `fn.apply` fast path                                            | production with compile-time stripping |
 
 `canSkip` semantics: `silent` and `off` short-circuit **before any predicate runs** — it is not "evaluate and swallow". An `onViolation`/`onAudit` that is not configured simply drops the record; the library keeps no hidden global log. See [modes.md](./modes.md) for end-to-end recipes.
 
@@ -418,12 +420,12 @@ In `warn` and `audit` modes, exceptions thrown **by** your handlers are caught a
 interface AuditRecord {
     kind: 'precondition' | 'postcondition' | 'invariant' | 'assertion' | 'on-error';
     message: string;
-    timestamp: number;          // Date.now()
+    timestamp: number; // Date.now()
     mode: 'audit';
     contractName?: string;
     functionName?: string;
     conditionIndex?: number;
-    durationMs?: number;        // time from wrapper entry to violation point
+    durationMs?: number; // time from wrapper entry to violation point
 }
 ```
 
@@ -498,9 +500,7 @@ const webpack = require('webpack');
 
 module.exports = {
     mode: 'production',
-    plugins: [
-        new webpack.DefinePlugin({ __DESIGN_CONTRACTS_ENABLED__: 'false' }),
-    ],
+    plugins: [new webpack.DefinePlugin({ __DESIGN_CONTRACTS_ENABLED__: 'false' })],
 };
 ```
 
@@ -510,7 +510,9 @@ module.exports = {
 import replace from '@rollup/plugin-replace';
 
 export default {
-    plugins: [replace({ preventAssignment: true, values: { __DESIGN_CONTRACTS_ENABLED__: 'false' } })],
+    plugins: [
+        replace({ preventAssignment: true, values: { __DESIGN_CONTRACTS_ENABLED__: 'false' } }),
+    ],
 };
 ```
 
@@ -559,13 +561,13 @@ JSON-safe serialization of hostile values, used internally for context squashing
 ```ts
 import { sanitize, safeSerialize } from 'design-contracts';
 
-sanitize({ a: 1, b: [1, 2, 3] });           // { a: 1, b: [1, 2, 3] }
-sanitize(new Map([['k', 'v']]));            // { '[type]': 'Map', entries: ... } — compact form
+sanitize({ a: 1, b: [1, 2, 3] }); // { a: 1, b: [1, 2, 3] }
+sanitize(new Map([['k', 'v']])); // { '[type]': 'Map', entries: ... } — compact form
 ```
 
 Behavior: cycles → `'[Circular]'` (per-path active set), excessive depth → `'[MaxDepth]'`, item overflow → `'[... N more items]'`, long strings truncated with `...[truncated N chars]`, `bigint` → `'10n'`, non-finite numbers → `String(value)`, `undefined` → `'[undefined]'`, functions → `'[Function: name]'`, class instances → own enumerable props plus a `'[type]': ctor.name` key. Getters and `toJSON` are **never** invoked — hostile objects cannot crash the serializer.
 
-Options (with clamps): `maxDepth` (default 4), `maxItems` (default 100), `maxStringLength` (default 500). `safeSerialize` is a thin alias of `sanitize(value)` with default options. Limitations: output is a *description*, not a round-trippable encoding — don't persist it and expect equality.
+Options (with clamps): `maxDepth` (default 4), `maxItems` (default 100), `maxStringLength` (default 500). `safeSerialize` is a thin alias of `sanitize(value)` with default options. Limitations: output is a _description_, not a round-trippable encoding — don't persist it and expect equality.
 
 ---
 
@@ -573,13 +575,13 @@ Options (with clamps): `maxDepth` (default 4), `maxItems` (default 100), `maxStr
 
 Ready-made telemetry adapters — factories returning `onViolation` / `onAudit` handlers. Nothing connects implicitly; no dependencies beyond the package; structurally typed. Full guide with copy-paste examples in [adapters.md](./adapters.md).
 
-| Factory | Destination | Default level/event |
-| --- | --- | --- |
-| `pinoAdapter` / `pinoAuditAdapter` | pino-like loggers (`logger[level](meta, message)`) | `error` / `warn` |
-| `winstonAdapter` / `winstonAuditAdapter` | winston-like loggers (`.log(level, msg, meta)` or `[level](msg, meta)` — auto-detected) | `error` / `warn` |
-| `openTelemetryAdapter` / `openTelemetryAuditAdapter` | span events via `span.addEvent` | `design-contracts.violation` / `design-contracts.audit` |
-| `diagnosticsChannelAdapter` / `diagnosticsChannelAuditAdapter` | `node:diagnostics_channel` | `design-contracts:violation` / `design-contracts:audit` |
-| `consoleAdapter` | `console.warn` / `console.error` with a prefix | `error`, prefix `[design-contracts]` |
+| Factory                                                        | Destination                                                                             | Default level/event                                     |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `pinoAdapter` / `pinoAuditAdapter`                             | pino-like loggers (`logger[level](meta, message)`)                                      | `error` / `warn`                                        |
+| `winstonAdapter` / `winstonAuditAdapter`                       | winston-like loggers (`.log(level, msg, meta)` or `[level](msg, meta)` — auto-detected) | `error` / `warn`                                        |
+| `openTelemetryAdapter` / `openTelemetryAuditAdapter`           | span events via `span.addEvent`                                                         | `design-contracts.violation` / `design-contracts.audit` |
+| `diagnosticsChannelAdapter` / `diagnosticsChannelAuditAdapter` | `node:diagnostics_channel`                                                              | `design-contracts:violation` / `design-contracts:audit` |
+| `consoleAdapter`                                               | `console.warn` / `console.error` with a prefix                                          | `error`, prefix `[design-contracts]`                    |
 
 Notes that matter:
 
@@ -597,14 +599,14 @@ Custom adapter from scratch is three lines: `configure({ onViolation: (error) =>
 
 Measured on **Node 24.2.0** and **Bun 1.4.2** with `vitest bench` (tinybench). These are upper-bound, pessimistic numbers — the benchmark runs against sources through the vitest module-runner, which adds cross-module getter overhead that a compiled `dist` build does not pay. See [benchmarks.md](./benchmarks.md) for methodology and the full table.
 
-| Scenario | Node 24.2.0 | Bun 1.4.2 |
-| --- | --- | --- |
-| plain call | 12.35M ops/s | 11.90M ops/s |
-| contract, 1 pre | 565k (~22x) | 498k (~24x) |
-| contract, pre + post | 434k (~29x) | 404k (~30x) |
-| contract, `off` mode | 1.22M (~10x) | 1.04M (~11x) |
+| Scenario                   | Node 24.2.0                    | Bun 1.4.2    |
+| -------------------------- | ------------------------------ | ------------ |
+| plain call                 | 12.35M ops/s                   | 11.90M ops/s |
+| contract, 1 pre            | 565k (~22x)                    | 498k (~24x)  |
+| contract, pre + post       | 434k (~29x)                    | 404k (~30x)  |
+| contract, `off` mode       | 1.22M (~10x)                   | 1.04M (~11x) |
 | async contract, pre + post | 238k (~7.4x vs async baseline) | 219k (~8.2x) |
-| contractObject + invariant | 255k (~25x) | 233k (~27x) |
+| contractObject + invariant | 255k (~25x)                    | 233k (~27x)  |
 
 Honest tuning guidance: `off` via compile-time define (zero ALS, zero resolution) > `silent` ≈ `off` via runtime mode > everything else. `silent`/`off` do not run predicates at all. `warn` costs about the same as `strict`; the only difference is the dispatch on violation. `old` snapshots are the most expensive feature (deep clone on **every** call).
 

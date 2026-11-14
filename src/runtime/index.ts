@@ -6,17 +6,13 @@
  * internal resolution helpers should import them from `./config` directly.
  */
 
-export { MODES, VIOLATION_CATEGORIES, isMode, isViolationCategory } from './modes';
-export type { Mode, ViolationCategory } from './modes';
-
-export { configure, getConfig, resetConfig } from './config';
 export type {
     AuditRecord,
     ContractConfig,
     ResolvedConfig,
     ViolationReport,
 } from './config';
-
+export { configure, getConfig, resetConfig } from './config';
 export {
     canSkip,
     formatViolation,
@@ -24,3 +20,5 @@ export {
     reportViolation,
     withConfig,
 } from './context';
+export type { Mode, ViolationCategory } from './modes';
+export { isMode, isViolationCategory, MODES, VIOLATION_CATEGORIES } from './modes';

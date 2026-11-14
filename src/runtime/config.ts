@@ -22,8 +22,8 @@
 import type { ContractViolationError } from '../errors/base.js';
 
 import { hostConsole, hostProcess } from './host';
-import { isMode, isViolationCategory, MODES, VIOLATION_CATEGORIES } from './modes';
 import type { Mode, ViolationCategory } from './modes';
+import { isMode, isViolationCategory, MODES, VIOLATION_CATEGORIES } from './modes';
 
 /** A single audit entry emitted in `audit` mode. `timestamp` is `Date.now()`. */
 export interface AuditRecord {
@@ -298,5 +298,3 @@ export function resetConfig(): ContractConfig {
     cachedBase = undefined;
     return previous;
 }
-
-

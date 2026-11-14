@@ -1,24 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { AuditRecord, ContractConfig, ViolationCategory } from '../src/index.js';
 import {
     AssertionViolationError,
+    condition,
+    configure,
+    contract,
+    getConfig,
     InvariantViolationError,
     PostconditionViolationError,
     PreconditionViolationError,
-    configure,
-    contract,
-    condition,
-    getConfig,
     resetConfig,
     withConfig,
 } from '../src/index.js';
-import type { AuditRecord, ContractConfig } from '../src/index.js';
 import {
     canSkip,
     formatViolation,
     getEffectiveConfig,
     reportViolation,
 } from '../src/runtime/index.js';
-import type { ViolationCategory } from '../src/index.js';
 
 // the repo compiles without ambient node types, so reach globals structurally
 const testProcess = (
@@ -274,9 +273,8 @@ describe('withConfig()', () => {
     });
 
     it('scope propagates through a promise-returning fn', async () => {
-        const result = await withConfig(
-            { mode: 'warn' },
-            () => Promise.resolve().then(() => getEffectiveConfig().mode),
+        const result = await withConfig({ mode: 'warn' }, () =>
+            Promise.resolve().then(() => getEffectiveConfig().mode),
         );
         expect(result).toBe('warn');
     });
@@ -486,7 +484,10 @@ describe('audit records', () => {
                 records.push(record);
             },
         });
-        reportViolation({ kind: 'precondition', message: 'nope' }, new PreconditionViolationError('nope'));
+        reportViolation(
+            { kind: 'precondition', message: 'nope' },
+            new PreconditionViolationError('nope'),
+        );
         expect(records).toHaveLength(1);
         const record = records[0];
         expect(record?.kind).toBe('precondition');
@@ -505,7 +506,10 @@ describe('audit records', () => {
                 violations.push(error);
             },
         });
-        reportViolation({ kind: 'postcondition', message: 'm' }, new PostconditionViolationError('m'));
+        reportViolation(
+            { kind: 'postcondition', message: 'm' },
+            new PostconditionViolationError('m'),
+        );
         expect(violations).toHaveLength(1);
     });
 
