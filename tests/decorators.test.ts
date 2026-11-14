@@ -5,66 +5,47 @@
  * syntax — decorators are passed through to V8, which cannot parse them —
  * so these tests apply the decorator through its exact public contract:
  * `contractMethod(options)(value, context)`, where `context` carries the
- * fields the decorator reads (kind/name/static/private/access and
- * addInitializer). The helpers below replicate the parts of the class
- * semantics the decorator relies on:
+ * fields the decorator reads (kind/name/static/private/access).
  *
- * - instance addInitializer callbacks run at construction time with
- *   `this` bound to the instance, base classes first (`initInstance`);
- * - static addInitializer callbacks run at class-definition time with
- *   `this` bound to the constructor (`finishClass`);
- * - field replacement initializers run with `this` bound to the instance
- *   or constructor and produce the stored value (`fieldInitializer`).
+ * The decorator resolves the base-class merge at call time (first call,
+ * cached on the wrapper) — no construction/definition hooks are involved,
+ * so the harness needs no initializer simulation: `dec()` swaps a member
+ * for the decorated wrapper and `initInstance()` is an identity kept for
+ * readability at call sites.
  *
  * Everything else — merging, lazy resolution through the prototype chain,
  * wrapper identity, metadata — is the real decorator implementation.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ContractContext, ContractMethodOptions } from '../src/index.js';
 import {
     condition,
     configure,
     contract,
     contractMethod,
     getContractMetadata,
-    resetConfig,
-} from '../src/index.js';
-import type { ContractContext, ContractMethodOptions } from '../src/index.js';
-import {
     OnErrorViolationError,
     PostconditionViolationError,
     PreconditionViolationError,
+    resetConfig,
 } from '../src/index.js';
 
 type MemberKind = 'method' | 'getter' | 'setter';
 type MemberFlags = { isStatic?: boolean; isPrivate?: boolean };
 
-type AddInitializer = (fn: (this: unknown) => void) => void;
 interface FakeContext {
     kind: MemberKind | 'field';
     name: string;
     static: boolean;
     private: boolean;
     access: { get(): unknown; set(value: unknown): void };
-    addInitializer: AddInitializer;
 }
 
-const decocer = (
-    options?: unknown,
-): ((value: unknown, context: unknown) => unknown) =>
+const decocer = (options?: unknown): ((value: unknown, context: unknown) => unknown) =>
     contractMethod(options as ContractMethodOptions) as unknown as (
         value: unknown,
         context: unknown,
     ) => unknown;
-
-const pending = new Map<Function, { instance: Array<(this: unknown) => void>; statik: Array<(this: unknown) => void> }>();
-const pendingFor = (ctor: Function) => {
-    let entry = pending.get(ctor);
-    if (entry === undefined) {
-        entry = { instance: [], statik: [] };
-        pending.set(ctor, entry);
-    }
-    return entry;
-};
 
 const makeContext = (
     ctor: Function,
@@ -84,10 +65,6 @@ const makeContext = (
             get: () => target[key],
             set: () => {},
         },
-        addInitializer(fn) {
-            const bucket = flags.isStatic ? pendingFor(ctor).statik : pendingFor(ctor).instance;
-            bucket.push(fn);
-        },
     };
 };
 
@@ -102,10 +79,14 @@ const dec = (
     const target: object = flags.isStatic ? ctor : ctor.prototype;
     const descriptor = Object.getOwnPropertyDescriptor(target, key);
     if (!descriptor) throw new Error(`member ${String(key)} not found on ${kind}`);
-    const value = kind === 'method' ? descriptor.value : kind === 'getter' ? descriptor.get : descriptor.set;
+    const value =
+        kind === 'method' ? descriptor.value : kind === 'getter' ? descriptor.get : descriptor.set;
     const wrapped = decocer(options)(value, makeContext(ctor, key, kind, flags));
     if (kind === 'method') {
-        Object.defineProperty(target, key, { ...descriptor, value: wrapped as (...args: never[]) => unknown });
+        Object.defineProperty(target, key, {
+            ...descriptor,
+            value: wrapped as (...args: never[]) => unknown,
+        });
     } else if (kind === 'getter') {
         Object.defineProperty(target, key, { ...descriptor, get: wrapped as () => unknown });
     } else {
@@ -114,42 +95,17 @@ const dec = (
     return wrapped;
 };
 
-/** run the static addInitializers — the Stage 3 class-definition point */
-const finishClass = (ctor: Function): void => {
-    const entry = pendingFor(ctor);
-    for (const fn of entry.statik) fn.call(ctor);
-    entry.statik.length = 0;
-};
-
-/** run the instance addInitializers, base classes first — call after `new Ctor()` */
-const initInstance = <T extends object>(instance: T): T => {
-    const ctors: Array<{ ctor: Function; proto: object }> = [];
-    let proto = Object.getPrototypeOf(instance) as object | null;
-    while (proto !== null && proto !== Object.prototype) {
-        const ctor = (proto as { constructor?: Function }).constructor;
-        if (ctor) ctors.push({ ctor, proto });
-        proto = Object.getPrototypeOf(proto);
-    }
-    ctors.reverse(); // base classes first, like class evaluation order
-    for (const { ctor } of ctors) {
-        for (const fn of pending.get(ctor)?.instance ?? []) fn.call(instance);
-    }
-    return instance;
-};
+/** identity helper — call-time merge needs no construction hook; kept so call sites read naturally */
+const initInstance = <T extends object>(instance: T): T => instance;
 
 /** field replacement initializer, as returned by the decorator for arrow-function fields */
-const fieldInitializer = (
-    options: unknown,
-    key = 'field',
-    isStatic = false,
-) => {
+const fieldInitializer = (options: unknown, key = 'field', isStatic = false) => {
     const ctx: FakeContext = {
         kind: 'field',
         name: key,
         static: isStatic,
         private: false,
         access: { get: () => undefined, set: () => {} },
-        addInitializer() {},
     };
     return decocer(options)(undefined, ctx) as (this: unknown, initialValue: unknown) => unknown;
 };
@@ -183,7 +139,9 @@ describe('@contractMethod on an instance method', () => {
             }
         }
         dec(SpyGreeter, 'greet', { pre: [() => false] }, 'method');
-        expect(() => initInstance(new SpyGreeter()).greet('ada')).toThrow(PreconditionViolationError);
+        expect(() => initInstance(new SpyGreeter()).greet('ada')).toThrow(
+            PreconditionViolationError,
+        );
         expect(spy).not.toHaveBeenCalled();
     });
 
@@ -229,12 +187,19 @@ describe('@contractMethod on an instance method', () => {
                 return this.size;
             }
         }
-        dec(Owned, 'measure', {
-            post: [(_r: number, ctx: ContractContext<[ ], number>) => {
-                seenSelf = ctx.self;
-                return true;
-            }],
-        }, 'method');
+        dec(
+            Owned,
+            'measure',
+            {
+                post: [
+                    (_r: number, ctx: ContractContext<[], number>) => {
+                        seenSelf = ctx.self;
+                        return true;
+                    },
+                ],
+            },
+            'method',
+        );
         const instance = initInstance(new Owned());
         expect(instance.measure()).toBe(3);
         expect(seenSelf).toBe(instance);
@@ -243,10 +208,9 @@ describe('@contractMethod on an instance method', () => {
 
 describe('@contractMethod — override merges with a decorated base class member', () => {
     const basePre = condition<[number]>((x) => x >= 100, { name: 'basePre' });
-    const basePost = condition<[number, ContractContext<[number], number>]>(
-        (r) => r > 0,
-        { name: 'basePost' },
-    );
+    const basePost = condition<[number, ContractContext<[number], number>]>((r) => r > 0, {
+        name: 'basePost',
+    });
     const derivedPre = condition<[number]>((x) => x >= 0, { name: 'derivedPre' });
     const derivedPost = condition<[number, ContractContext<[number], number>]>(
         (r) => r < 1_000_000,
@@ -277,7 +241,9 @@ describe('@contractMethod — override merges with a decorated base class member
     });
 
     it('throws PreconditionViolationError only when both sides fail', () => {
-        expect(() => initInstance(new ScaledWidget()).measure(-5)).toThrow(PreconditionViolationError);
+        expect(() => initInstance(new ScaledWidget()).measure(-5)).toThrow(
+            PreconditionViolationError,
+        );
     });
 
     it('fails the base postcondition first (base union position 0)', () => {
@@ -314,29 +280,47 @@ describe('@contractMethod — override merges with a decorated base class member
         expect(() => asBase.measure(-5)).toThrow(PreconditionViolationError);
     });
 
-    it('merges metadata post arrays with base first after first construction', () => {
+    it('merges metadata post arrays with base first after the first call', () => {
         class MetaBase {
             value(): number {
                 return 1;
             }
         }
-        dec(MetaBase, 'value', {
-            post: [condition<[number, ContractContext<[number], number>]>(() => true, { name: 'metaBasePost' })],
-        }, 'method');
+        dec(
+            MetaBase,
+            'value',
+            {
+                post: [
+                    condition<[number, ContractContext<[number], number>]>(() => true, {
+                        name: 'metaBasePost',
+                    }),
+                ],
+            },
+            'method',
+        );
         class MetaDerived extends MetaBase {
             override value(): number {
                 return 2;
             }
         }
-        dec(MetaDerived, 'value', {
-            post: [condition<[number, ContractContext<[number], number>]>(() => true, { name: 'metaDerivedPost' })],
-        }, 'method');
+        dec(
+            MetaDerived,
+            'value',
+            {
+                post: [
+                    condition<[number, ContractContext<[number], number>]>(() => true, {
+                        name: 'metaDerivedPost',
+                    }),
+                ],
+            },
+            'method',
+        );
 
-        // provisional metadata is own-only before the first construction/initialization
+        // provisional metadata is own-only before the first call
         const provisional = getContractMetadata(MetaDerived.prototype.value);
         expect(provisional?.options.post).toHaveLength(1);
 
-        initInstance(new MetaDerived());
+        new MetaDerived().value(); // first call resolves the merge
         const merged = getContractMetadata(MetaDerived.prototype.value);
         expect(merged?.options.post?.map((entry) => (entry as { name?: string }).name)).toEqual([
             'metaBasePost',
@@ -345,9 +329,15 @@ describe('@contractMethod — override merges with a decorated base class member
     });
 
     it('accumulates a three-level hierarchy (grandparent + parent + derived)', () => {
-        const grandPost = condition<[number, ContractContext<[number], number>]>(() => true, { name: 'grandPost' });
-        const midPost = condition<[number, ContractContext<[number], number>]>(() => true, { name: 'midPost' });
-        const leafPost = condition<[number, ContractContext<[number], number>]>(() => true, { name: 'leafPost' });
+        const grandPost = condition<[number, ContractContext<[number], number>]>(() => true, {
+            name: 'grandPost',
+        });
+        const midPost = condition<[number, ContractContext<[number], number>]>(() => true, {
+            name: 'midPost',
+        });
+        const leafPost = condition<[number, ContractContext<[number], number>]>(() => true, {
+            name: 'leafPost',
+        });
 
         class Grand {
             earn(): number {
@@ -376,11 +366,50 @@ describe('@contractMethod — override merges with a decorated base class member
         ).toEqual(['grandPost', 'midPost', 'leafPost']);
     });
 
+    it('applies the effective pre disjunction through the chain with a this-bound call', () => {
+        // grand rejects < 100, mid rejects < 200, leaf declares nothing of its own.
+        // calling the leaf override with 150 must be rescued by the grand side —
+        // the mid side of the hierarchy must not swallow grand's precondition
+        const grandPre = condition<[number]>((x) => x >= 100, { name: 'grandPre' });
+        const midPre = condition<[number]>((x) => x >= 200, { name: 'midPre' });
+
+        class PreGrand {
+            run(x: number): number {
+                return x;
+            }
+        }
+        dec(PreGrand, 'run', { pre: [grandPre] }, 'method');
+        class PreMid extends PreGrand {
+            override run(x: number): number {
+                return super.run(x);
+            }
+        }
+        dec(PreMid, 'run', { pre: [midPre] }, 'method');
+        class PreLeaf extends PreMid {
+            override run(x: number): number {
+                return super.run(x);
+            }
+        }
+        dec(PreLeaf, 'run', {}, 'method');
+
+        const leaf = initInstance(new PreLeaf());
+        // 150: grand side passes, mid side fails — the grand disjunct rescues the call
+        expect(leaf.run(150)).toBe(150);
+        // 250: mid side passes
+        expect(leaf.run(250)).toBe(250);
+        // 50: both sides fail — must throw
+        expect(() => leaf.run(50)).toThrow(PreconditionViolationError);
+
+        // same through a base-typed reference (the whole point of Liskov)
+        const asBase: PreGrand = leaf;
+        expect(asBase.run(150)).toBe(150);
+        expect(() => asBase.run(50)).toThrow(PreconditionViolationError);
+    });
+
     it('merges with a plain contract()-wrapped base (no decorator on the base side)', () => {
-        const basePlainPost = condition<[number, ContractContext<[], number>]>(
-            (r) => r > 100,
-            { name: 'basePlainPost' },
-        );
+        const basePlainPost = condition<[number, ContractContext<[], number>]>((r) => r > 100, {
+            name: 'basePlainPost',
+        });
         class PlainBase {
             helper(): number {
                 return 5;
@@ -420,7 +449,12 @@ describe('@contractMethod on a getter', () => {
         }
     }
     dec(Tank, 'fuel', { post: [(level: number) => level > 0] }, 'getter');
-    dec(Tank, 'capacity', { post: [(level: number) => level >= 0, (level: number) => level < 1000] }, 'getter');
+    dec(
+        Tank,
+        'capacity',
+        { post: [(level: number) => level >= 0, (level: number) => level < 1000] },
+        'getter',
+    );
 
     it('runs postconditions against the returned value', () => {
         const tank = initInstance(new Tank());
@@ -441,12 +475,19 @@ describe('@contractMethod on a getter', () => {
                 return 1;
             }
         }
-        dec(SelfGetter, 'thing', {
-            post: [(_r: number, ctx: ContractContext<[], number>) => {
-                self = ctx.self;
-                return true;
-            }],
-        }, 'getter');
+        dec(
+            SelfGetter,
+            'thing',
+            {
+                post: [
+                    (_r: number, ctx: ContractContext<[], number>) => {
+                        self = ctx.self;
+                        return true;
+                    },
+                ],
+            },
+            'getter',
+        );
         const instance = initInstance(new SelfGetter());
         expect(instance.thing).toBe(1);
         expect(self).toBe(instance);
@@ -500,7 +541,6 @@ describe('@contractMethod on static members', () => {
     }
     dec(MathBox, 'twice', { pre: [(x: number) => x > 0] }, 'method', { isStatic: true });
     dec(MathBox, 'whoAmI', undefined, 'method', { isStatic: true });
-    finishClass(MathBox);
 
     it('enforces contracts on static methods', () => {
         expect(MathBox.twice(21)).toBe(42);
@@ -512,17 +552,15 @@ describe('@contractMethod on static members', () => {
     });
 
     it('merges a static override in the derived class against the static base', () => {
-        const baseStaticPost = condition<[number, ContractContext<[], number>]>(
-            (r) => r >= 0,
-            { name: 'baseStaticPost' },
-        );
+        const baseStaticPost = condition<[number, ContractContext<[], number>]>((r) => r >= 0, {
+            name: 'baseStaticPost',
+        });
         class StaticBase {
             static work(): number {
                 return -1;
             }
         }
         dec(StaticBase, 'work', { post: [baseStaticPost] }, 'method', { isStatic: true });
-        finishClass(StaticBase);
 
         class StaticDerived extends StaticBase {
             static override work(): number {
@@ -530,7 +568,6 @@ describe('@contractMethod on static members', () => {
             }
         }
         dec(StaticDerived, 'work', undefined, 'method', { isStatic: true });
-        finishClass(StaticDerived);
 
         const caught = (() => {
             try {
@@ -550,7 +587,6 @@ describe('@contractMethod on static members', () => {
             }
         }
         dec(DisjBase, 'pick', { pre: [(x: number) => x >= 100] }, 'method', { isStatic: true });
-        finishClass(DisjBase);
 
         class DisjDerived extends DisjBase {
             static override pick(x: number): number {
@@ -558,7 +594,6 @@ describe('@contractMethod on static members', () => {
             }
         }
         dec(DisjDerived, 'pick', { pre: [(x: number) => x >= 0] }, 'method', { isStatic: true });
-        finishClass(DisjDerived);
 
         expect(DisjDerived.pick(50)).toBe(50); // derived side rescues
         expect(() => DisjDerived.pick(-1)).toThrow(PreconditionViolationError);
@@ -566,13 +601,14 @@ describe('@contractMethod on static members', () => {
 });
 
 describe('@contractMethod on arrow-function fields', () => {
-    const attach = (
-        instance: object,
-        key: string,
-        initializer: unknown,
-    ) => {
+    const attach = (instance: object, key: string, initializer: unknown) => {
         const target = instance as Record<PropertyKey, unknown>;
-        Object.defineProperty(target, key, { value: initializer, writable: true, enumerable: true, configurable: true });
+        Object.defineProperty(target, key, {
+            value: initializer,
+            writable: true,
+            enumerable: true,
+            configurable: true,
+        });
     };
 
     it('wraps the initializer result and enforces pre/post per instance', () => {
@@ -621,12 +657,18 @@ describe('@contractMethod on arrow-function fields', () => {
         const instance = new SelfField();
         let self: unknown;
         const init = fieldInitializer({
-            post: [(_r: string, ctx: ContractContext<[], string>) => {
-                self = ctx.self;
-                return true;
-            }],
+            post: [
+                (_r: string, ctx: ContractContext<[], string>) => {
+                    self = ctx.self;
+                    return true;
+                },
+            ],
         });
-        attach(instance, 'emit', init.call(instance, (): string => 'ping'));
+        attach(
+            instance,
+            'emit',
+            init.call(instance, (): string => 'ping'),
+        );
         expect((instance as unknown as { emit(): string }).emit()).toBe('ping');
         expect(self).toBe(instance);
     });
@@ -646,10 +688,9 @@ describe('@contractMethod on arrow-function fields', () => {
     });
 
     it('merges a static arrow-function field against the static base field', () => {
-        const baseFieldPost = condition<[number, ContractContext<[], number>]>(
-            (r) => r > 0,
-            { name: 'baseFieldPost' },
-        );
+        const baseFieldPost = condition<[number, ContractContext<[], number>]>((r) => r > 0, {
+            name: 'baseFieldPost',
+        });
         class StaticFieldBase {}
         const baseInit = fieldInitializer({ post: [baseFieldPost] }, 'handler', true);
         Object.defineProperty(StaticFieldBase, 'handler', {
@@ -668,7 +709,9 @@ describe('@contractMethod on arrow-function fields', () => {
 
         const caught = (() => {
             try {
-                return (StaticFieldDerived as unknown as { handler: (x: number) => number }).handler(10);
+                return (
+                    StaticFieldDerived as unknown as { handler: (x: number) => number }
+                ).handler(10);
             } catch (error) {
                 return error;
             }
@@ -805,10 +848,15 @@ describe('@contractMethod on async members', () => {
             throw new Error('boom');
         }
     }
-    dec(AsyncBox, 'compute', {
-        pre: [async (x: number) => x > 0],
-        post: [async (r: number) => r > 0],
-    }, 'method');
+    dec(
+        AsyncBox,
+        'compute',
+        {
+            pre: [async (x: number) => x > 0],
+            post: [async (r: number) => r > 0],
+        },
+        'method',
+    );
     dec(AsyncBox, 'small', { post: [async (r: number) => r > 100] }, 'method');
     dec(AsyncBox, 'failing', { onError: [() => false] }, 'method');
 
@@ -817,11 +865,15 @@ describe('@contractMethod on async members', () => {
     });
 
     it('rejects with PreconditionViolationError when the async pre fails', async () => {
-        await expect(initInstance(new AsyncBox()).compute(-1)).rejects.toThrow(PreconditionViolationError);
+        await expect(initInstance(new AsyncBox()).compute(-1)).rejects.toThrow(
+            PreconditionViolationError,
+        );
     });
 
     it('rejects with PostconditionViolationError when the async post fails', async () => {
-        await expect(initInstance(new AsyncBox()).small()).rejects.toThrow(PostconditionViolationError);
+        await expect(initInstance(new AsyncBox()).small()).rejects.toThrow(
+            PostconditionViolationError,
+        );
     });
 
     it('reports the base async pre violation for a decorated override', async () => {
@@ -834,20 +886,30 @@ describe('@contractMethod on async members', () => {
                 return x;
             }
         }
-        dec(AsyncBase, 'compute', {
-            pre: [(x: number) => x > 100],
-            post: [async (r: number) => r > 0],
-        }, 'method');
+        dec(
+            AsyncBase,
+            'compute',
+            {
+                pre: [(x: number) => x > 100],
+                post: [async (r: number) => r > 0],
+            },
+            'method',
+        );
 
         class AsyncDerived extends AsyncBase {
             override async compute(x: number): Promise<number> {
                 return x;
             }
         }
-        dec(AsyncDerived, 'compute', {
-            pre: [(x: number) => x > 0],
-            post: [async (r: number) => r > 0],
-        }, 'method');
+        dec(
+            AsyncDerived,
+            'compute',
+            {
+                pre: [(x: number) => x > 0],
+                post: [async (r: number) => r > 0],
+            },
+            'method',
+        );
 
         await expect(initInstance(new AsyncDerived()).compute(5)).resolves.toBe(5); // derived side rescues
         // sync failing predicates throw synchronously (the violation happens before fn runs)

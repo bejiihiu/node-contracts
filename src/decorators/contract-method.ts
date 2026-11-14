@@ -11,12 +11,15 @@
  *
  * Stage 3 decorators receive only `value` and `context` — never the class
  * being defined — so the base-class merge cannot happen at decoration time.
- * It happens lazily instead:
+ * It happens lazily instead, at call time:
  *
- * - methods/accessors: the merged contract is computed on the first call, or
- *   earlier via `addInitializer` (class definition for static members, first
- *   construction for instance members).
- * - fields: computed inside the initializer, which runs with `this` bound to
+ * the merged contract is resolved on the wrapper's first call, walking the
+ * prototype chain from the receiver (`this`); the merged contract is cached
+ * on the wrapper, so later calls go straight to the merged `contract()`
+ * wrapper with no chain walking at all.
+ *
+ * - methods/accessors: first call decides the merge for good (per wrapper);
+ * - fields: resolved inside the initializer, which runs with `this` bound to
  *   the instance (or the constructor for static fields) — per instance, like
  *   the field itself.
  *
@@ -24,9 +27,15 @@
  * provides, which is exactly the hierarchy the caller sees. Ancestors are
  * defined (and their member decorators applied) before descendants, so by
  * the time any derived member is first reached, the base's metadata is in
- * place. After the first construction a member reports its fully merged
- * metadata via `getContractMetadata()`; before any construction it reports
- * its own options only (provisional).
+ * place. The merge of an ancestor is computed recursively through the same
+ * mechanism (not read from possibly-unresolved metadata), so a deep
+ * hierarchy accumulates correctly regardless of call order. Deriving the
+ * merge at call time makes the behaviour identical on engines with correct
+ * or quirky `addInitializer` implementations.
+ *
+ * A member reports its fully merged metadata via `getContractMetadata()`
+ * after its first merge (first call); before any call it reports its own
+ * options only (provisional).
  *
  * Private members are never merged — their names are not comparable across
  * the chain — and always get their own contract only, applied eagerly.
@@ -36,7 +45,9 @@
  *
  * Calling an extracted member on an unrelated receiver (`const fn = obj.m;
  * fn.call(other)`) loses the base merge — the home level cannot be located —
- * and the member falls back to its own contract only. `super` calls are not
+ * and the member falls back to its own contract only. Calling it on the
+ * original instance (`fn.call(obj)`) still resolves the merge: the receiver
+ * carries the chain, not the extraction point. `super` calls are not
  * a problem: levels above the member's own level are always skipped, so a
  * base wrapper reached via `super` never absorbs the derived contract.
  */
@@ -86,6 +97,24 @@ const stripPre = (options: AnyContractOptions): AnyContractOptions => {
     return rest;
 };
 
+// internal hook: lets an ancestor wrapper hand a descendant a fully merged
+// view on demand, instead of exposing possibly-provisional metadata
+const INTERNAL_RESOLVE: unique symbol = Symbol('design-contracts/resolve-merged');
+type InternalResolver = (anchor: object) => { inner: AnyFunction; meta: AnyMetadata };
+
+/** fully merged meta for a candidate wrapper, or undefined when it is not ours */
+const resolveCandidate = (candidate: unknown, anchor: object): AnyMetadata | undefined => {
+    const resolver = (candidate as Record<PropertyKey, unknown> | null)?.[INTERNAL_RESOLVE] as
+        | InternalResolver
+        | undefined;
+    if (typeof resolver !== 'function') return undefined;
+    try {
+        return resolver(anchor).meta;
+    } catch {
+        return undefined; // a hostile/broken ancestor is no reason to drop our own contract
+    }
+};
+
 /** own options, with `pre` dropped for getters (a zero-arg member has nothing to check) */
 const ownOptionsFor = (kind: DecoratorKind, options: AnyContractOptions): AnyContractOptions =>
     kind === 'getter' ? stripPre(options) : options;
@@ -99,6 +128,10 @@ const ownOptionsFor = (kind: DecoratorKind, options: AnyContractOptions): AnyCon
  * descriptor; everything before it is skipped. Fields are stored on instances
  * (or defined later on the constructor), so their home level is invisible at
  * init time — they treat the whole walk as candidates instead.
+ *
+ * `anchor` is the receiver's chain start (prototype for instances, the
+ * constructor for statics); it is threaded into ancestor resolvers so a deep
+ * hierarchy accumulates bottom-up no matter which member is called first.
  */
 const findBaseMetadata = (
     anchor: object,
@@ -123,6 +156,9 @@ const findBaseMetadata = (
             if (typeof candidate === 'function') {
                 if (candidate === self) selfSeen = true;
                 else if (selfSeen) {
+                    // ours: get the ancestor's fully merged view (recursive, call-order independent)
+                    const resolved = resolveCandidate(candidate, anchor);
+                    if (resolved !== undefined) return resolved;
                     const metadata = getContractMetadata(candidate);
                     if (metadata !== undefined) return metadata;
                     // same-named member without a contract in between — keep walking, like mergeClassContracts
@@ -236,19 +272,29 @@ export function contractMethod<A extends unknown[] = AnyArgs, R = unknown>(
 
         const ownOptions = ownOptionsFor(kind, opts);
         let ensured: { inner: AnyFunction; meta: AnyMetadata } | undefined;
-        let transientMeta: AnyMetadata | undefined;
+        let transient: { inner: AnyFunction; meta: AnyMetadata } | undefined;
 
-        const ensure = (anchor: object | undefined) => {
+        const resolveTransient = () => {
+            transient ??= {
+                inner: contract(value, ownOptions) as AnyFunction,
+                meta: makeMeta(value, ownOptions),
+            };
+            return transient;
+        };
+
+        const resolveWith = (anchor: object | undefined) => {
             if (ensured !== undefined) return ensured;
+            if (anchor === undefined) return resolveTransient();
             const merged = resolveMerged(anchor, key, kind, wrapper, ownOptions);
-            const inner = contract(value, merged) as AnyFunction;
-            const e = { inner, meta: makeMeta(value, merged) };
-            if (anchor !== undefined) ensured = e; // deterministic chain — cache it
-            return e;
+            ensured = {
+                inner: contract(value, merged) as AnyFunction,
+                meta: makeMeta(value, merged),
+            };
+            return ensured;
         };
 
         const wrapper = function contractMethodWrapper(this: unknown, ...args: unknown[]): unknown {
-            return ensure(contextAnchor(this, context.static)).inner.apply(this, args);
+            return resolveWith(contextAnchor(this, context.static)).inner.apply(this, args);
         } as AnyFunction;
 
         Object.defineProperty(wrapper, 'length', { value: value.length, configurable: true });
@@ -258,19 +304,17 @@ export function contractMethod<A extends unknown[] = AnyArgs, R = unknown>(
         });
         Object.defineProperty(wrapper, CONTRACT_METADATA, {
             get() {
-                if (ensured !== undefined) return ensured.meta;
-                transientMeta ??= ensure(undefined).meta;
-                return transientMeta;
+                return ensured?.meta ?? resolveTransient().meta;
             },
             enumerable: false,
             configurable: true,
         });
-
-        context.addInitializer(function (this: unknown) {
-            // statics: runs at class definition time, this = constructor
-            // instance members: runs at construction time, this = instance
-            const anchor = contextAnchor(this, context.static);
-            if (anchor !== undefined) ensure(anchor);
+        // not enumerable; internal to this module's merge machinery
+        Object.defineProperty(wrapper, INTERNAL_RESOLVE, {
+            value: (anchor: object) => resolveWith(anchor),
+            enumerable: false,
+            configurable: true,
+            writable: false,
         });
 
         return wrapper;
