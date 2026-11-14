@@ -11,8 +11,21 @@
  * freely and report which component failed through `lastFailure`.
  */
 
+import { isThenable } from '../utils/thenable.js';
+
 /** Which composite operator produced a condition. */
 export type ConditionOperator = 'all' | 'any' | 'not';
+
+const noop = (): void => {};
+
+/** Boolean coercion used when a raw predicate value must become a verdict. */
+const boolOf = (value: unknown): boolean => Boolean(value);
+
+/** Attach a silent catch so a pendingVerdict nobody awaits never trips Node's unhandled-rejection crash; awaiting it later still sees the rejection. */
+const guarded = <T>(promise: Promise<T>): Promise<T> => {
+    promise.catch(noop);
+    return promise;
+};
 
 /**
  * Details about the most recent failing `check()` call.
@@ -65,8 +78,14 @@ export interface NamedCondition<Args extends unknown[]> {
     readonly id: string;
     /** User-provided failure message override, if any. */
     readonly message: string | undefined;
-    /** The raw predicate, or the composed predicate for composites. */
-    readonly predicate: (...args: Args) => boolean;
+    /**
+     * The raw predicate, or the composed predicate for composites.
+     *
+     * Declared loose because the sync evaluation passes the predicate's raw
+     * return value through untouched so evaluators can spot thenables — see
+     * `check()`. Composites always produce a real boolean.
+     */
+    readonly predicate: (...args: Args) => unknown;
     /** Composite operator when built via {@link all}/{@link any}/{@link not}, else undefined. */
     readonly operator: ConditionOperator | undefined;
     /** Child conditions for composites, in declaration order; undefined otherwise. */
@@ -75,6 +94,38 @@ export interface NamedCondition<Args extends unknown[]> {
     lastFailure: ConditionFailure | undefined;
     /** Evaluate the condition. Refreshes `lastFailure` synchronously. */
     check(...args: Args): boolean;
+    /**
+     * Async variant of `check()`. Evaluates the condition fully, awaiting
+     * thenable predicate results (and the thenables hidden inside composite
+     * children) instead of treating them as truthy.
+     *
+     * Named conditions created by this library always define it; foreign
+     * structural implementations may omit it, and evaluators should fall back
+     * to `check()` when it is absent. Like `check()` it is NOT a member
+     * function you should call from user code unless you know you need the
+     * async settlement — `evaluate` helpers in contracts handle this.
+     *
+     * Refreshes `lastFailure` exactly the same way `check()` does, including
+     * the short-circuit order (`all` bails on the first failure, `any` on the
+     * first pass, `not` on the single child).
+     */
+    checkAsync?(...args: Args): Promise<boolean>;
+    /**
+     * Internal hand-off used by evaluators that ran `check()` synchronously
+     * but discovered that some part of the evaluation returned a thenable.
+     *
+     * Set to a promise that resolves to the FINAL boolean verdict of this
+     * `check()` call (after awaiting every thenable seen during it) or
+     * rejects if one of those predicates rejected. It stays `undefined`
+     * after a fully synchronous check, in which case the sync boolean is
+     * final and no await is needed.
+     *
+     * Await it at most once per `check()` call; the `check()` implementation
+     * guarantees `lastFailure` is refreshed before the promise settles.
+     * Cleared at the start of every `check()` / `checkAsync()`. Not
+     * JSON-serializable — it holds a promise, don't read it from user code.
+     */
+    pendingVerdict?: Promise<boolean> | undefined;
 }
 
 export interface ConditionOptions {
@@ -93,10 +144,10 @@ export interface ConditionOptions {
     readonly id?: string;
 }
 
-/** Anything a composite accepts: a named condition or a bare predicate (normalized via {@link condition}). */
+/** Anything a composite accepts: a named condition or a bare predicate (normalized via {@link condition}). Predicates may return anything truthy/falsy, including thenables. */
 export type ConditionInput<Args extends unknown[] = unknown[]> =
     | NamedCondition<Args>
-    | ((...args: Args) => boolean);
+    | ((...args: Args) => unknown);
 
 // Symbol.for lives in the realm-wide registry, so `isNamedCondition` works
 // even when the library is loaded twice (dual ESM/CJS packaging or an
@@ -140,6 +191,16 @@ const childFailure = <Args extends unknown[]>(
     components: undefined,
 });
 
+/** Result of the synchronous sweep of a composite's children. */
+interface SyncSweep {
+    /** Failure as produced by the sync pass (truthy-as-pass semantics). */
+    readonly failure: ConditionFailure | undefined;
+    /** Boolean outcome per child position, meaningful only for [0, evaluated). */
+    readonly syncVerdicts: readonly boolean[];
+    /** How many children the sync pass actually evaluated (short-circuit cuts it short). */
+    readonly evaluated: number;
+}
+
 /**
  * Shared failure tracking for composites. Kept separate from the composed
  * predicate so the predicate stays a plain boolean function for anyone who
@@ -148,43 +209,252 @@ const childFailure = <Args extends unknown[]>(
 const runAll = <Args extends unknown[]>(
     children: readonly NamedCondition<Args>[],
     args: Args,
-): ConditionFailure | undefined => {
+): SyncSweep => {
+    const syncVerdicts: boolean[] = [];
     for (let index = 0; index < children.length; index++) {
         const child = children[index];
-        if (child === undefined) continue; // sparse by construction, but noUncheckedIndexedAccess wants this
-        if (!child.check(...args)) return childFailure('all', index, child);
+        if (child === undefined) {
+            syncVerdicts[index] = true; // sparse by construction, behaves like a pass
+            continue;
+        }
+        const passed = boolOf(child.check(...args));
+        syncVerdicts[index] = passed;
+        if (!passed) {
+            return {
+                failure: childFailure('all', index, child),
+                syncVerdicts,
+                evaluated: index + 1,
+            };
+        }
     }
-    return undefined;
+    return { failure: undefined, syncVerdicts, evaluated: children.length };
 };
 
 const runAny = <Args extends unknown[]>(
     children: readonly NamedCondition<Args>[],
     args: Args,
-): ConditionFailure | undefined => {
+): SyncSweep => {
+    const syncVerdicts: boolean[] = [];
     const failures: ConditionFailure[] = [];
     for (let index = 0; index < children.length; index++) {
         const child = children[index];
-        if (child === undefined) continue;
-        if (child.check(...args)) return undefined;
+        if (child === undefined) {
+            syncVerdicts[index] = true;
+            continue;
+        }
+        if (boolOf(child.check(...args))) {
+            syncVerdicts[index] = true;
+            return { failure: undefined, syncVerdicts, evaluated: index + 1 };
+        }
+        syncVerdicts[index] = false;
         failures.push(childFailure('any', index, child));
     }
-    // no component passed, so name the composite itself as the culprit
+    // no component passed, so name the composite itself as the culprit —
+    // the caller fills in conditionId/conditionName from the wrapper
     return {
+        failure: {
+            operator: 'any',
+            index: -1,
+            conditionId: '',
+            conditionName: '',
+            message: undefined,
+            cause: undefined,
+            components: failures,
+        },
+        syncVerdicts,
+        evaluated: children.length,
+    };
+};
+
+/** Await a child's async settlement if it recorded one, else reuse its settled sync verdict. */
+const childVerdict = <Args extends unknown[]>(
+    child: NamedCondition<Args>,
+    syncPassed: boolean | undefined,
+): Promise<boolean> => {
+    const pending = child.pendingVerdict;
+    return pending !== undefined ? pending : Promise.resolve(syncPassed ?? true);
+};
+
+/** Fresh async verdict for a child — used by `checkAsync` and by the `any` resume path. */
+const verdictFresh = <Args extends unknown[]>(
+    child: NamedCondition<Args>,
+    args: Args,
+): Promise<boolean> => {
+    if (child.checkAsync !== undefined) return child.checkAsync(...args);
+    // foreign structural condition without an async path — sync verdict is all we have
+    return Promise.resolve(boolOf(child.check(...args)));
+};
+
+/** Rebuild the final verdict for `all` from the children that were evaluated, without re-running predicates. */
+const replayAll = async <Args extends unknown[]>(
+    self: NamedCondition<Args>,
+    children: readonly NamedCondition<Args>[],
+    syncVerdicts: readonly boolean[],
+    evaluated: number,
+): Promise<boolean> => {
+    for (let index = 0; index < evaluated; index++) {
+        const child = children[index];
+        if (child === undefined) continue;
+        const passed = await childVerdict(child, syncVerdicts[index]);
+        if (!passed) {
+            // lastFailure is final here — a pendingVerdict settles only after the
+            // child refreshed it
+            self.lastFailure = childFailure('all', index, child);
+            return false;
+        }
+    }
+    self.lastFailure = undefined;
+    return true;
+};
+
+/** Rebuild the final verdict for `any` from the children that were evaluated, without re-running predicates. */
+const replayAny = async <Args extends unknown[]>(
+    self: NamedCondition<Args>,
+    children: readonly NamedCondition<Args>[],
+    args: Args,
+    syncVerdicts: readonly boolean[],
+    evaluated: number,
+): Promise<boolean> => {
+    const failures: ConditionFailure[] = [];
+    for (let index = 0; index < evaluated; index++) {
+        const child = children[index];
+        if (child === undefined) continue;
+        const passed = await childVerdict(child, syncVerdicts[index]);
+        if (passed) {
+            self.lastFailure = undefined;
+            return true;
+        }
+        failures.push(childFailure('any', index, child));
+    }
+    // the sync pass evaluates children until the first pass; everything after
+    // the pass winner never ran. If the winner settles falsy, the unseen
+    // children must be evaluated fresh (predicates still run exactly once —
+    // they never ran). Only the winner can be "provisional" — any sync-falsy
+    // child already recorded deterministically.
+    const winner = evaluated - 1;
+    if (winner >= 0 && syncVerdicts[winner] === true) {
+        const unseenFrom = winner + 1;
+        if (unseenFrom < children.length && children[winner]?.pendingVerdict !== undefined) {
+            for (let index = unseenFrom; index < children.length; index++) {
+                const child = children[index];
+                if (child === undefined) continue;
+                const passed = await verdictFresh(child, args);
+                if (passed) {
+                    self.lastFailure = undefined;
+                    return true;
+                }
+                failures.push(childFailure('any', index, child));
+            }
+        }
+    }
+    self.lastFailure = {
         operator: 'any',
         index: -1,
-        conditionId: '',
-        conditionName: '',
+        conditionId: self.id,
+        conditionName: self.name,
         message: undefined,
         cause: undefined,
         components: failures,
     };
+    return false;
+};
+
+/** Rebuild the final verdict for `not`. */
+const replayNot = async <Args extends unknown[]>(
+    self: NamedCondition<Args>,
+    child: NamedCondition<Args>,
+    syncPassed: boolean,
+): Promise<boolean> => {
+    const passed = await childVerdict(child, syncPassed);
+    if (!passed) {
+        // child failed, so the negation passes
+        self.lastFailure = undefined;
+        return true;
+    }
+    // the child unexpectedly passed — own failure, no deeper cause
+    self.lastFailure = childFailure('not', 0, child);
+    return false;
+};
+
+/** Fresh `all` sweep: sequential, short-circuits on the first failure. */
+const freshAll = async <Args extends unknown[]>(
+    self: NamedCondition<Args>,
+    children: readonly NamedCondition<Args>[],
+    args: Args,
+): Promise<boolean> => {
+    for (let index = 0; index < children.length; index++) {
+        const child = children[index];
+        if (child === undefined) continue;
+        const passed = await verdictFresh(child, args);
+        if (!passed) {
+            self.lastFailure = childFailure('all', index, child);
+            return false;
+        }
+    }
+    self.lastFailure = undefined;
+    return true;
+};
+
+/** Fresh `any` sweep: sequential, short-circuits on the first pass, collects every failure otherwise. */
+const freshAny = async <Args extends unknown[]>(
+    self: NamedCondition<Args>,
+    children: readonly NamedCondition<Args>[],
+    args: Args,
+): Promise<boolean> => {
+    const failures: ConditionFailure[] = [];
+    for (let index = 0; index < children.length; index++) {
+        const child = children[index];
+        if (child === undefined) continue;
+        const passed = await verdictFresh(child, args);
+        if (passed) {
+            self.lastFailure = undefined;
+            return true;
+        }
+        failures.push(childFailure('any', index, child));
+    }
+    self.lastFailure = {
+        operator: 'any',
+        index: -1,
+        conditionId: self.id,
+        conditionName: self.name,
+        message: undefined,
+        cause: undefined,
+        components: failures,
+    };
+    return false;
+};
+
+/** Fresh `not` sweep. */
+const freshNot = async <Args extends unknown[]>(
+    self: NamedCondition<Args>,
+    child: NamedCondition<Args>,
+    args: Args,
+): Promise<boolean> => {
+    const passed = await verdictFresh(child, args);
+    if (!passed) {
+        self.lastFailure = undefined;
+        return true;
+    }
+    self.lastFailure = childFailure('not', 0, child);
+    return false;
+};
+
+/** True when any evaluated child recorded a pending async settlement. */
+const prefixHasPending = <Args extends unknown[]>(
+    children: readonly NamedCondition<Args>[],
+    evaluated: number,
+): boolean => {
+    for (let index = 0; index < evaluated; index++) {
+        if (children[index]?.pendingVerdict !== undefined) return true;
+    }
+    return false;
 };
 
 interface ConditionInit<Args extends unknown[]> {
     readonly name: string;
     readonly id: string;
     readonly message: string | undefined;
-    readonly predicate: (...args: Args) => boolean;
+    readonly predicate: (...args: Args) => unknown;
     readonly operator: ConditionOperator | undefined;
     readonly components: readonly NamedCondition<Args>[] | undefined;
 }
@@ -192,6 +462,7 @@ interface ConditionInit<Args extends unknown[]> {
 const defineCondition = <Args extends unknown[]>(
     init: ConditionInit<Args>,
     evaluate: (self: NamedCondition<Args>, args: Args) => boolean,
+    evaluateAsync: (self: NamedCondition<Args>, args: Args) => Promise<boolean>,
 ): NamedCondition<Args> => {
     const condition: NamedCondition<Args> = {
         _tag: 'node-contracts/condition',
@@ -202,9 +473,16 @@ const defineCondition = <Args extends unknown[]>(
         operator: init.operator,
         components: init.components,
         lastFailure: undefined,
+        pendingVerdict: undefined,
         check(...args: Args): boolean {
             condition.lastFailure = undefined;
+            condition.pendingVerdict = undefined;
             return evaluate(condition, args);
+        },
+        checkAsync(...args: Args): Promise<boolean> {
+            condition.lastFailure = undefined;
+            condition.pendingVerdict = undefined;
+            return evaluateAsync(condition, args);
         },
     };
     // not enumerable on purpose: keeps accidental spreads/JSON.dumps tidy
@@ -222,6 +500,11 @@ const normalize = <Args extends unknown[]>(input: ConditionInput<Args>): NamedCo
  * `Args` is inferred conservatively from the predicate itself; when in
  * doubt, spell it out: `condition<[number]>((n) => n > 0)`.
  *
+ * The predicate may return anything; `Boolean(...)` truthiness decides
+ * (promises and thenables count as truthy when reached synchronously, which
+ * is why evaluators should use the async evaluation paths for anything
+ * possibly asynchronous — see `checkAsync()` and the contract core).
+ *
  * ```ts
  * const positiveNumber = condition<[number]>((n) => n > 0, {
  *     name: 'positiveNumber',
@@ -230,7 +513,7 @@ const normalize = <Args extends unknown[]>(input: ConditionInput<Args>): NamedCo
  * ```
  */
 export function condition<Args extends unknown[]>(
-    predicate: (...args: Args) => boolean,
+    predicate: (...args: Args) => unknown,
     options?: ConditionOptions,
 ): NamedCondition<Args> {
     const message = options?.message;
@@ -243,7 +526,19 @@ export function condition<Args extends unknown[]>(
             operator: undefined,
             components: undefined,
         },
-        (_self, args) => predicate(...args),
+        // sync path passes the raw value through (thenable stays detectable
+        // for evaluators); async path settles it for the boolean verdict
+        (self, args) => {
+            const raw = predicate(...args) as unknown;
+            if (isThenable(raw)) {
+                self.pendingVerdict = guarded(Promise.resolve(raw).then(boolOf));
+            }
+            return raw as boolean;
+        },
+        async (_self, args) => {
+            const raw = predicate(...args) as unknown;
+            return boolOf(isThenable(raw) ? await raw : raw);
+        },
     );
 }
 
@@ -273,10 +568,14 @@ export function all<Args extends unknown[]>(
             components: children,
         },
         (self, args) => {
-            const failure = runAll(children, args);
+            const { failure, syncVerdicts, evaluated } = runAll(children, args);
             self.lastFailure = failure;
+            self.pendingVerdict = prefixHasPending(children, evaluated)
+                ? guarded(replayAll(self, children, syncVerdicts, evaluated))
+                : undefined;
             return failure === undefined;
         },
+        async (self, args) => freshAll(self, children, args),
     );
 }
 
@@ -308,7 +607,10 @@ export function any<Args extends unknown[]>(
             components: children,
         },
         (self, args) => {
-            const failure = runAny(children, args);
+            const { failure, syncVerdicts, evaluated } = runAny(children, args);
+            self.pendingVerdict = prefixHasPending(children, evaluated)
+                ? guarded(replayAny(self, children, args, syncVerdicts, evaluated))
+                : undefined;
             if (failure !== undefined) {
                 // fill in the composite's identity now that it exists
                 self.lastFailure = { ...failure, conditionId: self.id, conditionName: self.name };
@@ -317,6 +619,7 @@ export function any<Args extends unknown[]>(
             }
             return failure === undefined;
         },
+        async (self, args) => freshAny(self, children, args),
     );
 }
 
@@ -344,7 +647,11 @@ export function not<Args extends unknown[]>(input: ConditionInput<Args>): NamedC
             components: children,
         },
         (self, args) => {
-            const ok = child.check(...args);
+            const ok = boolOf(child.check(...args));
+            const pending = child.pendingVerdict;
+            // mirror of the all/any hand-off: await the child's async settlement
+            self.pendingVerdict =
+                pending !== undefined ? guarded(replayNot(self, child, ok)) : undefined;
             if (!ok) {
                 // child failed, so the negation passes
                 self.lastFailure = undefined;
@@ -355,6 +662,7 @@ export function not<Args extends unknown[]>(input: ConditionInput<Args>): NamedC
             self.lastFailure = childFailure('not', 0, child);
             return false;
         },
+        async (self, args) => freshNot(self, child, args),
     );
 }
 

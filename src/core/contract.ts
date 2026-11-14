@@ -48,6 +48,7 @@ import { PostconditionViolationError } from '../errors/postcondition.js';
 import { PreconditionViolationError } from '../errors/precondition.js';
 import type { Mode } from '../runtime/index.js';
 import { canSkip, getEffectiveConfig, reportViolation } from '../runtime/index.js';
+import { isThenable } from '../utils/thenable.js';
 import type { NamedCondition } from './condition.js';
 import { condition, isNamedCondition } from './condition.js';
 import type { ContractMetadata } from './inheritance.js';
@@ -148,7 +149,10 @@ export interface ContractOptions<A extends unknown[], R> {
      * switches to a promise-returning path and awaits the predicates. In a
      * synchronous call path an async predicate throws a `TypeError` —
      * `contract()` cannot suspend synchronous execution, and silently
-     * returning a promise would break every synchronous caller.
+     * returning a promise would break every synchronous caller. Async
+     * predicates nested inside composite conditions (`all()`/`any()`/`not()`)
+     * are supported the same way — the composite's async settlement is
+     * awaited as well.
      *
      * Named conditions are used as-is; bare predicates are normalized to named
      * conditions once at contract-creation time (never per call).
@@ -246,17 +250,6 @@ const asyncFunctionCtor: unknown = Object.getPrototypeOf(async () => {
 const asyncGeneratorCtor: unknown = Object.getPrototypeOf(async function* () {
     yield undefined;
 }).constructor;
-
-const isThenable = (value: unknown): boolean => {
-    if (value === null) return false;
-    const type = typeof value;
-    if (type !== 'object' && type !== 'function') return false;
-    try {
-        return typeof (value as { then?: unknown }).then === 'function';
-    } catch {
-        return false; // hostile then-getter — treat as plain value
-    }
-};
 
 /** Normalize one condition, evaluating the argument lazily at call time. */
 const normalizeCondition = <Args extends unknown[]>(
@@ -392,6 +385,7 @@ export function contract<A extends unknown[], R>(
         index: number,
         mode: Mode,
         captureStack: boolean,
+        startedAt: number,
     ): void => {
         const cond = entry.named;
         const details: ContractViolationDetails = {
@@ -415,6 +409,8 @@ export function contract<A extends unknown[], R>(
                 contractName,
                 functionName: fnName,
                 conditionIndex: index,
+                // durationMs = wall time from wrapper entry to the point of violation
+                durationMs: Math.max(0, Date.now() - startedAt),
             },
             error,
             configuredMode,
@@ -434,11 +430,24 @@ export function contract<A extends unknown[], R>(
         mode: Mode,
         captureStack: boolean,
         old: OldValues | undefined,
+        startedAt: number,
     ): Promise<void> => {
         const context = makePostContext(args, self, mode, result, old);
         for (const [index, entry] of postEntries.entries()) {
-            const raw: unknown = await (entry.named.check(result, context) as unknown);
-            if (!raw) reportSectionViolation('postcondition', entry, index, mode, captureStack);
+            // async-aware: composite children are awaited too, not just top-level preds
+            const raw: unknown =
+                entry.named.checkAsync !== undefined
+                    ? await entry.named.checkAsync(result, context)
+                    : await (entry.named.check(result, context) as unknown);
+            if (!raw)
+                reportSectionViolation(
+                    'postcondition',
+                    entry,
+                    index,
+                    mode,
+                    captureStack,
+                    startedAt,
+                );
         }
     };
 
@@ -448,11 +457,16 @@ export function contract<A extends unknown[], R>(
         self: unknown,
         mode: Mode,
         captureStack: boolean,
+        startedAt: number,
     ): Promise<void> => {
         const context = makeErrorContext(args, self, mode, error);
         for (const [index, entry] of onErrorEntries.entries()) {
-            const raw: unknown = await (entry.named.check(error, context) as unknown);
-            if (!raw) reportSectionViolation('on-error', entry, index, mode, captureStack);
+            const raw: unknown =
+                entry.named.checkAsync !== undefined
+                    ? await entry.named.checkAsync(error, context)
+                    : await (entry.named.check(error, context) as unknown);
+            if (!raw)
+                reportSectionViolation('on-error', entry, index, mode, captureStack, startedAt);
         }
     };
 
@@ -466,14 +480,25 @@ export function contract<A extends unknown[], R>(
         args: A,
         preCollected: readonly CollectedPre<A>[],
         snapshotOld: boolean,
+        startedAt: number,
     ): Promise<UnwrapPromise<R>> => {
         const resolved = getEffectiveConfig(configuredMode);
         const mode = resolved.mode;
         const captureStack = resolveCapture(resolved.captureStack);
 
         for (const { entry, index, raw } of preCollected) {
-            const value: unknown = await raw;
-            if (!value) reportSectionViolation('precondition', entry, index, mode, captureStack);
+            let value: unknown;
+            if (isThenable(raw)) {
+                value = await raw;
+            } else if (entry.named.pendingVerdict !== undefined) {
+                // a composite hid async work — its verdict was collected
+                // during the sync check() pass, predicates ran exactly once
+                value = await entry.named.pendingVerdict;
+            } else {
+                value = raw;
+            }
+            if (!value)
+                reportSectionViolation('precondition', entry, index, mode, captureStack, startedAt);
         }
 
         const old = snapshotOld ? takeOldSnapshot(args) : undefined;
@@ -482,7 +507,7 @@ export function contract<A extends unknown[], R>(
             result = await fn.apply(self, args);
         } catch (error) {
             if (!canSkip('on-error', configuredMode) && onErrorEntries.length > 0) {
-                await checkOnErrorAsync(error, args, self, mode, captureStack);
+                await checkOnErrorAsync(error, args, self, mode, captureStack, startedAt);
             }
             throw error;
         }
@@ -494,6 +519,7 @@ export function contract<A extends unknown[], R>(
                 mode,
                 captureStack,
                 old,
+                startedAt,
             );
         }
         return result as UnwrapPromise<R>;
@@ -512,6 +538,7 @@ export function contract<A extends unknown[], R>(
             return fn.apply(this, args);
         }
 
+        const startedAt = Date.now();
         const mode = resolved.mode;
         const captureStack = resolveCapture(resolved.captureStack);
 
@@ -523,7 +550,11 @@ export function contract<A extends unknown[], R>(
                 index,
                 raw: entry.named.check(...args) as unknown,
             }));
-            if (preCollected.some((item) => isThenable(item.raw))) {
+            // thenables may hide at the top level or inside composites
+            const needsAsync = preCollected.some(
+                (item) => isThenable(item.raw) || item.entry.named.pendingVerdict !== undefined,
+            );
+            if (needsAsync) {
                 if (!probablyAsyncFn) {
                     throw new TypeError(
                         `node-contracts: async predicate detected in a synchronous call path of "${fnName}"; ` +
@@ -531,10 +562,24 @@ export function contract<A extends unknown[], R>(
                     );
                 }
                 // predicates were already invoked — continue with their pending results
-                return continueAsync(this, args, preCollected, snapshotOld) as unknown as R;
+                return continueAsync(
+                    this,
+                    args,
+                    preCollected,
+                    snapshotOld,
+                    startedAt,
+                ) as unknown as R;
             }
             for (const { entry, index, raw } of preCollected) {
-                if (!raw) reportSectionViolation('precondition', entry, index, mode, captureStack);
+                if (!raw)
+                    reportSectionViolation(
+                        'precondition',
+                        entry,
+                        index,
+                        mode,
+                        captureStack,
+                        startedAt,
+                    );
             }
         }
 
@@ -548,13 +593,21 @@ export function contract<A extends unknown[], R>(
                 const context = makeErrorContext(args, this, mode, error);
                 for (const [index, entry] of onErrorEntries.entries()) {
                     const raw = entry.named.check(error, context) as unknown;
-                    if (isThenable(raw)) {
+                    if (isThenable(raw) || entry.named.pendingVerdict !== undefined) {
                         throw new TypeError(
                             `node-contracts: async on-error predicate detected in a synchronous call path of "${fnName}"; ` +
                                 'make the wrapped function async to use async predicates',
                         );
                     }
-                    if (!raw) reportSectionViolation('on-error', entry, index, mode, captureStack);
+                    if (!raw)
+                        reportSectionViolation(
+                            'on-error',
+                            entry,
+                            index,
+                            mode,
+                            captureStack,
+                            startedAt,
+                        );
                 }
             }
             throw error;
@@ -571,13 +624,19 @@ export function contract<A extends unknown[], R>(
                     if (skipPost) return unwrapped;
                     const typed = unwrapped as UnwrapPromise<R>;
                     // async predicates are fine here — we are already off the sync path
-                    return checkPostconditionAsync(typed, args, this, mode, captureStack, old).then(
-                        () => unwrapped,
-                    );
+                    return checkPostconditionAsync(
+                        typed,
+                        args,
+                        this,
+                        mode,
+                        captureStack,
+                        old,
+                        startedAt,
+                    ).then(() => unwrapped);
                 },
                 async (error: unknown) => {
                     if (!skipOnError) {
-                        await checkOnErrorAsync(error, args, this, mode, captureStack);
+                        await checkOnErrorAsync(error, args, this, mode, captureStack, startedAt);
                     }
                     // an on-error violation throws from reportViolation; otherwise the original error flies
                     throw error;
@@ -592,13 +651,21 @@ export function contract<A extends unknown[], R>(
             const context = makePostContext(args, this, mode, typed, old);
             for (const [index, entry] of postEntries.entries()) {
                 const raw = entry.named.check(typed, context) as unknown;
-                if (isThenable(raw)) {
+                if (isThenable(raw) || entry.named.pendingVerdict !== undefined) {
                     throw new TypeError(
                         `node-contracts: async postcondition predicate detected in a synchronous call path of "${fnName}"; ` +
                             'make the wrapped function async to use async predicates',
                     );
                 }
-                if (!raw) reportSectionViolation('postcondition', entry, index, mode, captureStack);
+                if (!raw)
+                    reportSectionViolation(
+                        'postcondition',
+                        entry,
+                        index,
+                        mode,
+                        captureStack,
+                        startedAt,
+                    );
             }
         }
         return result;

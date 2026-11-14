@@ -268,6 +268,8 @@ export function contractObject<T extends object>(
     const contractName = defaultContractName(target, options.name);
     // resolved once per call site through the runtime caches — cheap
     const captureStack = options.captureStack ?? getEffectiveConfig(mode).captureStack;
+    // durationMs baseline for '<init>' violations; methods/set traps set their own
+    const objectStartedAt = Date.now();
     // re-entrancy guard: set while an invariant pass is running
     let checking = false;
     // how many wrapped-method frames are currently on the stack (or in flight for
@@ -281,7 +283,11 @@ export function contractObject<T extends object>(
     // assigned right after the trap closures below — they can't fire before that
     let wrapper: T;
 
-    const checkInvariants = (functionName: string, cause?: unknown): void => {
+    const checkInvariants = (
+        functionName: string,
+        cause?: unknown,
+        durationStart?: number,
+    ): void => {
         if (invariants === undefined || invariants.length === 0) {
             return;
         }
@@ -330,6 +336,10 @@ export function contractObject<T extends object>(
                         contractName,
                         functionName,
                         conditionIndex: index,
+                        // durationMs = wall time from the guarded boundary to the point of violation
+                        ...(durationStart !== undefined
+                            ? { durationMs: Math.max(0, Date.now() - durationStart) }
+                            : {}),
                     },
                     error,
                     mode,
@@ -346,6 +356,7 @@ export function contractObject<T extends object>(
         // the reported name is the property key we were accessed under, not fn.name —
         // "account.deposit" is what the user actually called
         const bound = function (this: unknown, ...args: never[]): unknown {
+            const startedAt = Date.now();
             methodDepth += 1;
             let result: unknown;
             try {
@@ -354,7 +365,7 @@ export function contractObject<T extends object>(
                 methodDepth -= 1;
                 // a method that threw still gets its invariants checked — the state
                 // may be half-mutated, which is exactly when they matter
-                checkInvariants(functionName, methodError);
+                checkInvariants(functionName, methodError, startedAt);
                 throw methodError;
             }
             if (isThenable(result)) {
@@ -364,12 +375,12 @@ export function contractObject<T extends object>(
                 // settle, so intermediate writes inside continuations don't double-report.
                 const onFulfilled = (value: unknown): unknown => {
                     methodDepth -= 1;
-                    checkInvariants(functionName);
+                    checkInvariants(functionName, undefined, startedAt);
                     return value;
                 };
                 const onRejected = (methodError: unknown): unknown => {
                     methodDepth -= 1;
-                    checkInvariants(functionName, methodError);
+                    checkInvariants(functionName, methodError, startedAt);
                     throw methodError;
                 };
                 try {
@@ -381,7 +392,7 @@ export function contractObject<T extends object>(
                 }
             }
             methodDepth -= 1;
-            checkInvariants(functionName);
+            checkInvariants(functionName, undefined, startedAt);
             return result;
         };
         return bound as AnyFunction;
@@ -415,7 +426,7 @@ export function contractObject<T extends object>(
             }
             // inside a wrapped method the write is checked once, when the method settles
             if (methodDepth === 0) {
-                checkInvariants(setCheckName);
+                checkInvariants(setCheckName, undefined, Date.now());
             }
             return true;
         },
@@ -424,7 +435,7 @@ export function contractObject<T extends object>(
     wrapper = new Proxy(target, handler);
 
     // boundary (a): the initial state must satisfy the invariants too
-    checkInvariants(initCheckName);
+    checkInvariants(initCheckName, undefined, objectStartedAt);
 
     return wrapper;
 }
