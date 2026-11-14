@@ -17,6 +17,7 @@
  */
 
 import { createRequire } from 'node:module';
+import { isContractsCompiledIn } from '../utils/build-flag';
 import {
     assertValidConfig,
     getGeneration,
@@ -131,8 +132,18 @@ export function getEffectiveConfig(contractMode?: Mode): ResolvedConfig {
  *
  * O(1), allocation-free on hot paths. Call this once per check site instead
  * of re-resolving the configuration manually.
+ *
+ * When the bundle was built with `__DESIGN_CONTRACTS_ENABLED__` defined as
+ * `false`, predicates are compiled out entirely: this returns `true` before
+ * touching the configuration, so no predicate ever runs in that build.
  */
 export function canSkip(category: ViolationCategory, contractMode?: Mode): boolean {
+    // contracts compiled out: always skip, don't even resolve the config.
+    // the flag folds to a constant under a define; physical removal of the
+    // branch below depends on the minifier inlining isContractsCompiledIn()
+    if (!isContractsCompiledIn()) {
+        return true;
+    }
     const resolved = getEffectiveConfig(contractMode);
     return resolved.skipPredicates || resolved.disabled.has(category);
 }
