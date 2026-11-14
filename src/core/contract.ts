@@ -12,6 +12,26 @@
  * when every category is skipped and no `old` snapshot is needed, the wrapper
  * degrades to a raw `fn.apply(...)` fast path.
  *
+ * ## Config snapshot semantics
+ *
+ * The wrapper resolves the effective config ONCE, at call entry. The resolved
+ * config (and the per-category skip decisions derived from it) is captured by
+ * the call and reused by every later phase of that same call: postconditions,
+ * on-error checks and the async continuation all see the entry-time config.
+ *
+ * Consequence (edge case, deliberate): if `configure()` or `withConfig()` runs
+ * *while a call is in flight* — e.g. inside `fn` itself, or between the
+ * promise resolving and the postcondition phase — the in-flight call does NOT
+ * observe the new configuration. Before this optimization the async
+ * continuation re-resolved the config at phase time and could pick up the
+ * change. The trade is one `getEffectiveConfig()` per call instead of one per
+ * phase; the observable behavior changes only for mid-flight reconfiguration
+ * of an already-running call, which is not a supported pattern (handlers and
+ * modes are process-wide; flipping them under a running call is racy by
+ * definition). Violation *dispatch* inside `reportViolation()` still resolves
+ * the effective mode at report time — it is the rare path and correctness
+ * there is free.
+ *
  * @example
  * ```ts
  * import { contract } from './index.js';
@@ -46,8 +66,9 @@ import type {
 import { OnErrorViolationError } from '../errors/on-error.js';
 import { PostconditionViolationError } from '../errors/postcondition.js';
 import { PreconditionViolationError } from '../errors/precondition.js';
-import type { Mode } from '../runtime/index.js';
-import { canSkip, getEffectiveConfig, reportViolation } from '../runtime/index.js';
+import type { Mode, ResolvedConfig, ViolationCategory } from '../runtime/index.js';
+import { getEffectiveConfig, reportViolation } from '../runtime/index.js';
+import { isContractsCompiledIn } from '../utils/build-flag';
 import { isThenable } from '../utils/thenable.js';
 import type { NamedCondition } from './condition.js';
 import { condition, isNamedCondition } from './condition.js';
@@ -242,6 +263,11 @@ interface NormalizedCondition<Args extends unknown[]> {
 type ViolationSection = 'precondition' | 'postcondition' | 'on-error';
 
 const NO_ENTRIES: readonly [] = [];
+
+// inline skip decision against an already-resolved config — same rule as
+// canSkip(), but without re-resolving anything on the hot path
+const skipCategory = (resolved: ResolvedConfig, category: ViolationCategory): boolean =>
+    resolved.skipPredicates || resolved.disabled.has(category);
 
 // tags async functions without needing AsyncFunction in the type system
 const asyncFunctionCtor: unknown = Object.getPrototypeOf(async () => {
@@ -474,6 +500,9 @@ export function contract<A extends unknown[], R>(
      * Continuation for the "an async predicate appeared in `pre`" case.
      * Predicates were already invoked (callers saw the thenables); here we only
      * await them, in declaration order, then run the rest of the contract.
+     *
+     * `resolved`/`skipPost`/`skipOnError` are captured at wrapper entry —
+     * see the "Config snapshot semantics" note on the module docs.
      */
     const continueAsync = async (
         self: unknown,
@@ -481,8 +510,10 @@ export function contract<A extends unknown[], R>(
         preCollected: readonly CollectedPre<A>[],
         snapshotOld: boolean,
         startedAt: number,
+        resolved: ResolvedConfig,
+        skipPost: boolean,
+        skipOnError: boolean,
     ): Promise<UnwrapPromise<R>> => {
-        const resolved = getEffectiveConfig(configuredMode);
         const mode = resolved.mode;
         const captureStack = resolveCapture(resolved.captureStack);
 
@@ -506,12 +537,12 @@ export function contract<A extends unknown[], R>(
         try {
             result = await fn.apply(self, args);
         } catch (error) {
-            if (!canSkip('on-error', configuredMode) && onErrorEntries.length > 0) {
+            if (!skipOnError && onErrorEntries.length > 0) {
                 await checkOnErrorAsync(error, args, self, mode, captureStack, startedAt);
             }
             throw error;
         }
-        if (!canSkip('postcondition', configuredMode)) {
+        if (!skipPost) {
             await checkPostconditionAsync(
                 result as UnwrapPromise<R>,
                 args,
@@ -526,10 +557,14 @@ export function contract<A extends unknown[], R>(
     };
 
     const wrapper = function wrapped(this: unknown, ...args: A): R {
+        // compiled out entirely: no config resolution, no ALS, no Date.now()
+        if (!isContractsCompiledIn()) {
+            return fn.apply(this, args);
+        }
         const resolved = getEffectiveConfig(configuredMode);
-        const skipPre = canSkip('precondition', configuredMode);
-        const skipPost = canSkip('postcondition', configuredMode);
-        const skipOnError = canSkip('on-error', configuredMode);
+        const skipPre = skipCategory(resolved, 'precondition');
+        const skipPost = skipCategory(resolved, 'postcondition');
+        const skipOnError = skipCategory(resolved, 'on-error');
         // old is useless when postconditions cannot run
         const snapshotOld = oldPotentiallyNeeded && !skipPost;
 
@@ -568,6 +603,9 @@ export function contract<A extends unknown[], R>(
                     preCollected,
                     snapshotOld,
                     startedAt,
+                    resolved,
+                    skipPost,
+                    skipOnError,
                 ) as unknown as R;
             }
             for (const { entry, index, raw } of preCollected) {
