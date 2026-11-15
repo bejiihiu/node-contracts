@@ -4,7 +4,7 @@
 
 design-contracts checks the promises your code makes to itself while the program is running, right next to the business logic it describes: preconditions on inputs, postconditions on results, invariants on objects and classes, and assertions for the assumptions that cannot be expressed any other way. Conditions can look back at values from before the call, and contracts respect the Liskov substitution principle, so an override can weaken a precondition or strengthen a postcondition — never the reverse.
 
-[![package](https://img.shields.io/badge/package-v1.0.1-0066CC)](https://github.com/bejiihiu/node-contracts/packages)
+[![package](https://img.shields.io/badge/package-v1.0.2-0066CC)](https://github.com/bejiihiu/node-contracts/packages)
 [![CI](https://github.com/bejiihiu/node-contracts/actions/workflows/ci.yml/badge.svg)](https://github.com/bejiihiu/node-contracts/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](https://github.com/bejiihiu/node-contracts/blob/main/LICENSE)
 
@@ -81,7 +81,7 @@ Bug reports and feature requests go through the [GitHub issue tracker](https://g
 
 ## Status
 
-design-contracts 1.0.1 is a stable release. The public API follows semver, and breaking changes — when they happen — are documented with a migration path in [migration.md](https://github.com/bejiihiu/node-contracts/blob/main/docs/migration.md). Changes are listed in [CHANGELOG.md](https://github.com/bejiihiu/node-contracts/blob/main/CHANGELOG.md).
+design-contracts 1.0.2 is a stable release. The public API follows semver, and breaking changes — when they happen — are documented with a migration path in [migration.md](https://github.com/bejiihiu/node-contracts/blob/main/docs/migration.md). Changes are listed in [CHANGELOG.md](https://github.com/bejiihiu/node-contracts/blob/main/CHANGELOG.md).
 
 ## License
 

@@ -1,6 +1,6 @@
 {
     "name": "@bejiihiu/design-contracts",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "Design by Contract for JavaScript, TypeScript, Node.js and Bun",
     "license": "MIT",
     "author": "design-contracts contributors",
