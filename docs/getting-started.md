@@ -46,7 +46,7 @@ Notes:
 
 Requirements:
 
-- **Node.js >= 18** (runtime compatibility target) or **Bun**
+- **Node.js >= 18** (runtime compatibility target; CI verifies Node 18, 20, 22, and 26.13.1 LTS) or **Bun**
 - **ESM and CJS both supported** — pick whichever your project uses
 - TypeScript is optional but recommended; no configuration is required for basic use
 

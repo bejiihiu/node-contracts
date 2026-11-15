@@ -14,7 +14,7 @@ Thanks for your interest in contributing! This document explains how to get invo
 Requirements:
 
 - [Bun](https://bun.sh) >= 1.1 (package manager, build, tests) — recommended
-- Node.js >= 18 (runtime compatibility target); **Node.js >= 22.12 required to run the test suite with npm** (`vitest` 5 needs it) — with Bun, the suite runs without one
+- Node.js >= 18 (runtime compatibility target); **Node.js 26.13.1 LTS (Lithium) recommended; .nvmrc pins it; Node >= 22.12 required to run the test suite with npm** (`vitest` 5 needs it) — with Bun, the suite runs without one
 - Git
 
 ```sh

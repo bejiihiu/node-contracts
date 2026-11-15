@@ -52,7 +52,7 @@ jobs:
             fail-fast: false
             matrix:
                 os: [ubuntu-latest, windows-latest, macos-latest]
-                node-version: [18, 20, 22]
+                node-version: [18, 20, 22, 'lts/*']
         steps:
             - name: Checkout
               uses: actions/checkout@v4
@@ -65,10 +65,9 @@ jobs:
               with:
                   node-version: ${{ matrix.node-version }}
 
-            # vitest 5 needs node >= 22.12, the library itself supports node >= 18,
-            # so against node we only smoke-test the built dual package instead of running vitest.
-            # build runs through bun on purpose: tsup's bin resolves the system node,
-            # and node 18 cannot require tsup's ESM-only dependencies
+            # we smoke-test the built dual package on every supported node line
+            # (unit suite runs under bun instead). build goes through bun on purpose:
+            # tsup's bin resolves the system node, and old lines can't run tsup's deps.
             - name: Install dependencies
               run: bun install --frozen-lockfile
 
