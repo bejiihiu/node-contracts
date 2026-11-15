@@ -17,6 +17,12 @@ updates:
               dependency-type: development
           production:
               dependency-type: production
+      ignore:
+          # tsup's classic dts pipeline works reliably only with TS 5.x;
+          # don't auto-bump the major until that changes intentionally
+          - dependency-name: typescript
+            update-types:
+                - version-update:semver-major
 
     - package-ecosystem: github-actions
       directory: /
