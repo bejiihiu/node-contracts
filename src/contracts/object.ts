@@ -22,9 +22,12 @@
  * 3. **After direct property writes** — the `set` trap writes the value and
  *    then checks the invariants. A write that happens *inside* a wrapped method
  *    is NOT checked at the assignment site; it is checked exactly once when the
- *    method settles (and for async methods, inside the continuations the
- *    check is deferred the same way). This keeps one check per boundary
- *    instead of one check per assignment.
+ *    method settles (for async methods, inside the continuations the check is
+ *    deferred the same way). This keeps one check per boundary instead of one
+ *    check per assignment. "Inside a method" is tracked with an
+ *    AsyncLocalStorage scope (sync execution and `await` continuations alike);
+ *    on runtimes without AsyncLocalStorage it degrades to a synchronous-only
+ *    depth counter — see Limits.
  *
  * Invariants are deliberately NOT re-checked on every `get`: reading must stay
  * cheap and side-effect free, and reads cannot invalidate state.
@@ -95,6 +98,15 @@
  *   other, so invariants still apply.
  * - `captureStack: false` suppresses the stack trace on violation errors
  *   produced by this module (a small win on hot, known-failing paths).
+ * - Writes to a *different* contracted wrapper from inside a wrapped method
+ *   are not deferred — that wrapper's own methods own its deferral scope.
+ *   Cross-object writes check eagerly at the assignment site.
+ * - On runtimes without AsyncLocalStorage the in-method write deferral
+ *   degrades to a synchronous depth counter (best effort, documented):
+ *   writes in async continuations after an `await` check eagerly at the
+ *   assignment site instead of deferring to the settle check. The settle
+ *   check itself always runs, so violations are still caught — just reported
+ *   eagerly and possibly more than once per method.
  *
  * ## Error fields
  *
@@ -111,6 +123,7 @@ import type { ContractViolationDetails } from '../errors/index.js';
 import { InvariantViolationError } from '../errors/index.js';
 import type { Mode } from '../runtime/index.js';
 import { canSkip, getEffectiveConfig, isMode, reportViolation } from '../runtime/index.js';
+import { isInsideMethodScope, runMethodScope } from '../utils/method-scope.js';
 import { hideStack } from '../utils/stack.js';
 import { isThenable } from '../utils/thenable.js';
 
@@ -252,10 +265,6 @@ export function contractObject<T extends object>(
     const objectStartedAt = Date.now();
     // re-entrancy guard: set while an invariant pass is running
     let checking = false;
-    // how many wrapped-method frames are currently on the stack (or in flight for
-    // async methods). Writes inside a method defer to the post-settle check instead
-    // of each triggering one — otherwise a 3-assignment method reports 3 times.
-    let methodDepth = 0;
     // per-wrapper cache: original fn -> property key -> bound fn. Keyed by key
     // too so aliased functions still report the right method name.
     const boundMethods = new WeakMap<AnyFunction, Map<PropertyKey, AnyFunction>>();
@@ -337,43 +346,42 @@ export function contractObject<T extends object>(
         // "account.deposit" is what the user actually called
         const bound = function (this: unknown, ...args: never[]): unknown {
             const startedAt = Date.now();
-            methodDepth += 1;
-            let result: unknown;
-            try {
-                result = fn.apply(wrapper, args);
-            } catch (methodError) {
-                methodDepth -= 1;
-                // a method that threw still gets its invariants checked — the state
-                // may be half-mutated, which is exactly when they matter
-                checkInvariants(functionName, methodError, startedAt);
-                throw methodError;
-            }
-            if (isThenable(result)) {
-                // the state after an async method only exists once the promise settles —
-                // check there instead of at return time. Both paths check: a rejected
-                // method may have mutated before rejecting. methodDepth stays > 0 until
-                // settle, so intermediate writes inside continuations don't double-report.
-                const onFulfilled = (value: unknown): unknown => {
-                    methodDepth -= 1;
-                    checkInvariants(functionName, undefined, startedAt);
-                    return value;
-                };
-                const onRejected = (methodError: unknown): unknown => {
-                    methodDepth -= 1;
+            // the whole call — sync body, plus any continuations this module
+            // hangs on a returned thenable — runs inside the method scope, so
+            // in-method writes defer to the settle check. External writes
+            // (outside this scope, even while the method is pending) check
+            // eagerly. On runtimes without AsyncLocalStorage the fallback
+            // covers only the sync phase — see method-scope.ts.
+            return runMethodScope(wrapper, () => {
+                let result: unknown;
+                try {
+                    result = fn.apply(wrapper, args);
+                } catch (methodError) {
+                    // a method that threw still gets its invariants checked — the state
+                    // may be half-mutated, which is exactly when they matter
                     checkInvariants(functionName, methodError, startedAt);
                     throw methodError;
-                };
-                try {
-                    return result.then(onFulfilled, onRejected);
-                } catch (thenError) {
-                    // a hostile thenable threw synchronously on .then — balance the counter
-                    methodDepth -= 1;
-                    throw thenError;
                 }
-            }
-            methodDepth -= 1;
-            checkInvariants(functionName, undefined, startedAt);
-            return result;
+                if (isThenable(result)) {
+                    // the state after an async method only exists once the promise settles —
+                    // check there instead of at return time. Both paths check: a rejected
+                    // method may have mutated before rejecting. The settle callbacks are
+                    // registered inside the scope, so continuation writes stay deferred.
+                    const onFulfilled = (value: unknown): unknown => {
+                        checkInvariants(functionName, undefined, startedAt);
+                        return value;
+                    };
+                    const onRejected = (methodError: unknown): unknown => {
+                        checkInvariants(functionName, methodError, startedAt);
+                        throw methodError;
+                    };
+                    // a hostile thenable that throws synchronously on .then surfaces raw —
+                    // there is nothing trustworthy to hook a settle check onto
+                    return result.then(onFulfilled, onRejected);
+                }
+                checkInvariants(functionName, undefined, startedAt);
+                return result;
+            });
         };
         return bound as AnyFunction;
     };
@@ -404,8 +412,9 @@ export function contractObject<T extends object>(
                 // non-writable non-configurable own prop — let the assignment fail loudly
                 return false;
             }
-            // inside a wrapped method the write is checked once, when the method settles
-            if (methodDepth === 0) {
+            // inside one of this wrapper's methods the write is checked once, when
+            // the method settles — one check per boundary, not per assignment
+            if (!isInsideMethodScope(wrapper)) {
                 checkInvariants(setCheckName, undefined, Date.now());
             }
             return true;

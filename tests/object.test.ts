@@ -558,7 +558,7 @@ describe('contractObject()', () => {
         });
     });
 
-    describe('this binding, nested calls, methodDepth', () => {
+    describe('this binding, nested calls', () => {
         it('binds this inside methods to the wrapper, not the target', () => {
             let captured: unknown;
             const target = {
@@ -607,7 +607,7 @@ describe('contractObject()', () => {
             ]);
         });
 
-        it('reports exactly once for a method with several violating writes (methodDepth)', () => {
+        it('reports exactly once for a method with several violating writes', () => {
             const onAudit = vi.fn<(record: AuditRecord) => void>();
             configure({ mode: 'audit', onAudit });
             const target = contractObject(

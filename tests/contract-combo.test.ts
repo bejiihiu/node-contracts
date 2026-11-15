@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
     contract,
     OnErrorViolationError,
@@ -28,7 +28,12 @@ describe('contract combinations: onError + post + old', () => {
             },
             {
                 pre: [(acc, amount) => amount > 0 && acc.balance >= amount],
-                post: [(result, ctx) => result === (ctx.old as { acc: { balance: number } }).acc.balance - (ctx.old as { amount: number }).amount],
+                post: [
+                    (result, ctx) =>
+                        result ===
+                        (ctx.old as { acc: { balance: number } }).acc.balance -
+                            (ctx.old as { amount: number }).amount,
+                ],
                 old: ['acc', 'amount'],
             },
         );
@@ -46,7 +51,12 @@ describe('contract combinations: onError + post + old', () => {
                 return value * 2;
             },
             {
-                post: [(result) => { observed.push(result); return true; }],
+                post: [
+                    (result) => {
+                        observed.push(result);
+                        return true;
+                    },
+                ],
                 onError: [(error) => error instanceof Error],
             },
         );
@@ -109,18 +119,15 @@ describe('contract combinations: onError + post + old', () => {
 
     it('repeated calls of the same wrapped function do not leak state between invocations', async () => {
         const calls: Array<{ result: number; oldAmount: number }> = [];
-        const double = contract(
-            async (n: number) => n * 2,
-            {
-                post: [
-                    (result, ctx) => {
-                        calls.push({ result, oldAmount: (ctx.old as { n: number }).n });
-                        return true;
-                    },
-                ],
-                old: ['n'],
-            },
-        );
+        const double = contract(async (n: number) => n * 2, {
+            post: [
+                (result, ctx) => {
+                    calls.push({ result, oldAmount: (ctx.old as { n: number }).n });
+                    return true;
+                },
+            ],
+            old: ['n'],
+        });
 
         for (const n of [1, 2, 3, 4]) {
             await double(n);
@@ -151,13 +158,10 @@ describe('contract combinations: onError + post + old', () => {
     });
 
     it('post violation carries fn name and result even when old snapshot exists', async () => {
-        const broken = contract(
-            async (x: number) => x,
-            {
-                post: [(result) => result > 100],
-                old: (args) => ({ captured: args[0] }),
-            },
-        );
+        const broken = contract(async (x: number) => x, {
+            post: [(result) => result > 100],
+            old: (args) => ({ captured: args[0] }),
+        });
 
         await expect(broken(5)).rejects.toThrow(PostconditionViolationError);
     });
