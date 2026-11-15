@@ -67,6 +67,10 @@ Contracts are not free — every checked call pays for the wrapper and for the c
 
 Runnable, numbered examples covering the same ground live in [examples/README.md](https://github.com/bejiihiu/node-contracts/blob/main/examples/README.md) — they run end to end and print what they do.
 
+## Standard track
+
+Design by Contract is being pursued for ECMAScript standardization through the TC39 process; the Stage 0 proposal, the prior-art survey, and the reference model live in [proposal-design-by-contract](https://github.com/bejiihiu/proposal-design-by-contract). The library doubles as the proposal's reference implementation.
+
 ## When not to use this
 
 If all you need is to validate external input — a request body, a configuration file, a third-party payload — a schema validator is the right tool, and design-contracts will not replace it. Contracts pay off where an invariant can be stated precisely and cheaply, inside code you own; they are a poor fit for expensive checks, for one-off scripts, and for teams without a habit of writing down assumptions. If you are new to Design by Contract, start with audit mode on a few critical functions and see what it reports — a full-coverage rollout is rarely the right first step.
