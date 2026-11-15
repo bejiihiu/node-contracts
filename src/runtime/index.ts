@@ -11,14 +11,14 @@ export type {
     ContractConfig,
     ResolvedConfig,
     ViolationReport,
-} from './config';
-export { configure, getConfig, resetConfig } from './config';
+} from './config.js';
+export { configure, getConfig, resetConfig } from './config.js';
 export {
     canSkip,
-    formatViolation,
+    formatReport,
     getEffectiveConfig,
     reportViolation,
     withConfig,
-} from './context';
-export type { Mode, ViolationCategory } from './modes';
-export { isMode, isViolationCategory, MODES, VIOLATION_CATEGORIES } from './modes';
+} from './context.js';
+export type { Mode, ViolationCategory } from './modes.js';
+export { isMode, isViolationCategory, MODES, VIOLATION_CATEGORIES } from './modes.js';

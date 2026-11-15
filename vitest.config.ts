@@ -2,8 +2,6 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
     test: {
-        // no tests yet - keep the early runs green
-        passWithNoTests: true,
         coverage: {
             provider: 'v8',
             include: ['src/**/*.{ts,tsx}'],

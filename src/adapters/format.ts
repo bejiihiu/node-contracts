@@ -2,7 +2,7 @@
  * Shared formatting helpers for the logging/telemetry adapters.
  *
  * Why here and not `src/utils/`: nothing outside the adapters consumes these
- * today, and `formatViolation(report)` already exists in `src/runtime/context.ts`
+ * today, and `formatReport(report)` already exists in `src/runtime/context.ts`
  * (it formats a `ViolationReport` for the built-in warn fallback). This module
  * works on the richer `ContractViolationError` (adds `conditionName`) and is
  * shaped for adapter output. Consolidating the two is a lead-level call once
@@ -12,7 +12,7 @@
  * throws, it just degrades to a sanitized representation.
  */
 
-import { safeSerialize } from '../core/sanitize.js';
+import { sanitize } from '../core/sanitize.js';
 import type { ContractViolationError } from '../errors/index.js';
 import type { AuditRecord } from '../runtime/index.js';
 
@@ -48,7 +48,7 @@ export interface ViolationLogObjectOptions {
     /**
      * Include the violation's sanitized `context` in the log object under `context`.
      * Default `false` — context can carry sensitive data. When enabled, the
-     * context goes through `safeSerialize` first, so cycles cannot break logging.
+     * context goes through `sanitize` first, so cycles cannot break logging.
      */
     readonly includeContext?: boolean;
 }
@@ -77,7 +77,7 @@ export function violationLogObject(
             ? { conditionName: violation.conditionName }
             : {}),
         ...(options.includeContext === true && violation.context !== undefined
-            ? { context: safeSerialize(violation.context) }
+            ? { context: sanitize(violation.context) }
             : {}),
     };
     return fields;

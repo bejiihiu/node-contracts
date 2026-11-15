@@ -1,8 +1,19 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AssertionViolationError, assert, ContractViolationError } from '../src/index.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+    AssertionViolationError,
+    assert,
+    ContractViolationError,
+    configure,
+    resetConfig,
+} from '../src/index.js';
+
+beforeEach(() => {
+    resetConfig();
+});
 
 afterEach(() => {
     vi.restoreAllMocks();
+    resetConfig();
 });
 
 describe('assert — falsy condition', () => {
@@ -128,5 +139,76 @@ describe('assert.fail', () => {
     it('is usable as the throw site in a function typed to never return', () => {
         const unreachable = (): never => assert.fail('should not reach');
         expect(unreachable).toThrow(AssertionViolationError);
+    });
+});
+
+describe('assert — enforcement modes', () => {
+    it('off mode: a falsy condition is a no-op — nothing thrown, no handlers called', () => {
+        const onViolation = vi.fn();
+        const onAudit = vi.fn();
+        configure({ mode: 'off', onViolation, onAudit });
+        expect(() => assert(false)).not.toThrow();
+        expect(() => assert.fail('deliberate')).not.toThrow();
+        expect(onViolation).not.toHaveBeenCalled();
+        expect(onAudit).not.toHaveBeenCalled();
+    });
+
+    it('silent mode: a falsy condition is a no-op', () => {
+        const onViolation = vi.fn();
+        configure({ mode: 'silent', onViolation });
+        expect(() => assert(false, 'boom')).not.toThrow();
+        expect(onViolation).not.toHaveBeenCalled();
+    });
+
+    it('warn mode: the violation is reported to onViolation, nothing throws', () => {
+        const onViolation = vi.fn();
+        configure({ mode: 'warn', onViolation });
+        expect(() => assert(false, 'boom')).not.toThrow();
+        expect(onViolation).toHaveBeenCalledTimes(1);
+        const error = onViolation.mock.calls[0]?.[0];
+        expect(error).toBeInstanceOf(AssertionViolationError);
+        expect((error as AssertionViolationError).kind).toBe('assertion');
+        expect((error as AssertionViolationError).mode).toBe('warn');
+    });
+
+    it('warn mode with the assertion category disabled: full no-op, handler not called', () => {
+        const onViolation = vi.fn();
+        configure({ mode: 'warn', disabled: ['assertion'], onViolation });
+        expect(() => assert(false, 'boom')).not.toThrow();
+        expect(() => assert.fail('deliberate')).not.toThrow();
+        expect(onViolation).not.toHaveBeenCalled();
+    });
+
+    it('audit mode: onAudit receives a record of kind assertion, onViolation also fires', () => {
+        const onAudit = vi.fn();
+        const onViolation = vi.fn();
+        configure({ mode: 'audit', onAudit, onViolation });
+        expect(() => assert(false, 'boom')).not.toThrow();
+        expect(onAudit).toHaveBeenCalledTimes(1);
+        expect(onAudit.mock.calls[0]?.[0]).toMatchObject({ kind: 'assertion', mode: 'audit' });
+        expect(onViolation).toHaveBeenCalledTimes(1);
+        expect(onViolation.mock.calls[0]?.[0]).toBeInstanceOf(AssertionViolationError);
+    });
+
+    it('audit mode with the assertion category disabled: nothing is reported', () => {
+        const onAudit = vi.fn();
+        const onViolation = vi.fn();
+        configure({ mode: 'audit', disabled: ['assertion'], onAudit, onViolation });
+        expect(() => assert(false, 'boom')).not.toThrow();
+        expect(onAudit).not.toHaveBeenCalled();
+        expect(onViolation).not.toHaveBeenCalled();
+    });
+
+    it('assert.fail in warn mode reports without throwing', () => {
+        const onViolation = vi.fn();
+        configure({ mode: 'warn', onViolation });
+        expect(() => assert.fail('deliberate')).not.toThrow();
+        expect(onViolation).toHaveBeenCalledTimes(1);
+        expect(onViolation.mock.calls[0]?.[0]).toBeInstanceOf(AssertionViolationError);
+    });
+
+    it('strict mode stays the default: a falsy condition throws', () => {
+        expect(() => assert(false)).toThrow(AssertionViolationError);
+        expect(() => assert.fail()).toThrow(AssertionViolationError);
     });
 });

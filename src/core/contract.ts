@@ -68,7 +68,8 @@ import { PostconditionViolationError } from '../errors/postcondition.js';
 import { PreconditionViolationError } from '../errors/precondition.js';
 import type { Mode, ResolvedConfig, ViolationCategory } from '../runtime/index.js';
 import { getEffectiveConfig, reportViolation } from '../runtime/index.js';
-import { isContractsCompiledIn } from '../utils/build-flag';
+import { isContractsCompiledIn } from '../utils/build-flag.js';
+import { hideStack } from '../utils/stack.js';
 import { isThenable } from '../utils/thenable.js';
 import type { NamedCondition } from './condition.js';
 import { condition, isNamedCondition } from './condition.js';
@@ -277,6 +278,18 @@ const asyncGeneratorCtor: unknown = Object.getPrototypeOf(async function* () {
     yield undefined;
 }).constructor;
 
+/**
+ * Raw evaluation that tolerates foreign structural conditions: they satisfy
+ * `isNamedCondition` but may not implement `evaluate()`. Falls back to
+ * `check()`, whose runtime return may be raw (the type says boolean, the
+ * runtime never lied about it).
+ */
+const evaluateRaw = <Args extends unknown[]>(
+    named: NamedCondition<Args>,
+    ...args: Args
+): unknown =>
+    named.evaluate !== undefined ? named.evaluate(...args) : (named.check(...args) as unknown);
+
 /** Normalize one condition, evaluating the argument lazily at call time. */
 const normalizeCondition = <Args extends unknown[]>(
     input: NamedCondition<Args> | ((...args: Args) => unknown),
@@ -284,7 +297,7 @@ const normalizeCondition = <Args extends unknown[]>(
     if (isNamedCondition<Args>(input)) {
         return { named: input, fromUserCondition: true };
     }
-    // check() passes the raw value through — thenables stay detectable at the call site
+    // evaluate() passes the raw value through — thenables stay detectable at the call site
     return {
         named: condition(input as unknown as (...args: Args) => boolean),
         fromUserCondition: false,
@@ -296,19 +309,6 @@ const normalizeList = <Args extends unknown[]>(
 ): readonly NormalizedCondition<Args>[] => {
     if (inputs === undefined || inputs.length === 0) return NO_ENTRIES;
     return inputs.map(normalizeCondition);
-};
-
-/** Best-effort stack stripping; used when captureStack resolves to false. */
-const hideStack = (error: Error): void => {
-    try {
-        Object.defineProperty(error, 'stack', {
-            value: undefined,
-            writable: true,
-            configurable: true,
-        });
-    } catch {
-        // non-configurable stack — nothing else we can do, leave it
-    }
 };
 
 const buildViolationError = (
@@ -423,7 +423,7 @@ export function contract<A extends unknown[], R>(
             ...(entry.fromUserCondition && cond.name.length > 0
                 ? { conditionName: cond.name }
                 : {}),
-            // lastFailure is only meaningful right after check() returns false — fine here
+            // lastFailure is only meaningful right after evaluation fails — fine here
             ...(cond.lastFailure !== undefined ? { cause: cond.lastFailure } : {}),
         };
         const error = buildViolationError(section, cond.message ?? o.message, details);
@@ -464,7 +464,7 @@ export function contract<A extends unknown[], R>(
             const raw: unknown =
                 entry.named.checkAsync !== undefined
                     ? await entry.named.checkAsync(result, context)
-                    : await (entry.named.check(result, context) as unknown);
+                    : await (evaluateRaw(entry.named, result, context) as unknown);
             if (!raw)
                 reportSectionViolation(
                     'postcondition',
@@ -490,7 +490,7 @@ export function contract<A extends unknown[], R>(
             const raw: unknown =
                 entry.named.checkAsync !== undefined
                     ? await entry.named.checkAsync(error, context)
-                    : await (entry.named.check(error, context) as unknown);
+                    : await (evaluateRaw(entry.named, error, context) as unknown);
             if (!raw)
                 reportSectionViolation('on-error', entry, index, mode, captureStack, startedAt);
         }
@@ -523,7 +523,7 @@ export function contract<A extends unknown[], R>(
                 value = await raw;
             } else if (entry.named.pendingVerdict !== undefined) {
                 // a composite hid async work — its verdict was collected
-                // during the sync check() pass, predicates ran exactly once
+                // during the sync evaluate() pass, predicates ran exactly once
                 value = await entry.named.pendingVerdict;
             } else {
                 value = raw;
@@ -583,7 +583,7 @@ export function contract<A extends unknown[], R>(
             preCollected = preEntries.map((entry, index) => ({
                 entry,
                 index,
-                raw: entry.named.check(...args) as unknown,
+                raw: evaluateRaw(entry.named, ...args),
             }));
             // thenables may hide at the top level or inside composites
             const needsAsync = preCollected.some(
@@ -630,7 +630,7 @@ export function contract<A extends unknown[], R>(
             if (!skipOnError) {
                 const context = makeErrorContext(args, this, mode, error);
                 for (const [index, entry] of onErrorEntries.entries()) {
-                    const raw = entry.named.check(error, context) as unknown;
+                    const raw = evaluateRaw(entry.named, error, context);
                     if (isThenable(raw) || entry.named.pendingVerdict !== undefined) {
                         throw new TypeError(
                             `design-contracts: async on-error predicate detected in a synchronous call path of "${fnName}"; ` +
@@ -688,7 +688,7 @@ export function contract<A extends unknown[], R>(
             const typed = result as UnwrapPromise<R>;
             const context = makePostContext(args, this, mode, typed, old);
             for (const [index, entry] of postEntries.entries()) {
-                const raw = entry.named.check(typed, context) as unknown;
+                const raw = evaluateRaw(entry.named, typed, context);
                 if (isThenable(raw) || entry.named.pendingVerdict !== undefined) {
                     throw new TypeError(
                         `design-contracts: async postcondition predicate detected in a synchronous call path of "${fnName}"; ` +

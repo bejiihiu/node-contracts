@@ -1,14 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ConditionFailure, NamedCondition } from '../src/index.js';
-import {
-    all,
-    any,
-    condition,
-    isNamedCondition,
-    not,
-    safeSerialize,
-    sanitize,
-} from '../src/index.js';
+import { all, any, condition, isNamedCondition, not, sanitize } from '../src/index.js';
 
 afterEach(() => {
     vi.restoreAllMocks();
@@ -82,11 +74,17 @@ describe('condition() — check() semantics', () => {
         expect(cond.lastFailure).toBeUndefined();
     });
 
-    it('returns false and leaves lastFailure undefined on failure (plain condition)', () => {
+    it('returns false and records a leaf failure (operator condition) on failure', () => {
         const cond = condition(() => false);
         expect(cond.check()).toBe(false);
-        // plain conditions carry no sub-structure — nothing to report
-        expect(cond.lastFailure).toBeUndefined();
+        // plain conditions carry no sub-structure, but the failure itself is recorded
+        const failure = cond.lastFailure;
+        expect(failure?.operator).toBe('condition');
+        expect(failure?.index).toBe(0);
+        expect(failure?.conditionId).toBe(cond.id);
+        expect(failure?.conditionName).toBe(cond.name);
+        expect(failure?.cause).toBeUndefined();
+        expect(failure?.components).toBeUndefined();
     });
 
     it('truthy non-boolean predicates pass; falsy ones do not', () => {
@@ -341,7 +339,7 @@ describe('ConditionInput — bare predicates normalize', () => {
     });
 });
 
-describe('sanitize / safeSerialize', () => {
+describe('sanitize', () => {
     it('cycles on the same path become [Circular]', () => {
         const obj: Record<string, unknown> = { name: 'x' };
         obj['self'] = obj;
@@ -414,10 +412,11 @@ describe('sanitize / safeSerialize', () => {
         expect(sanitize(Number.NEGATIVE_INFINITY)).toBe('-Infinity');
     });
 
-    it('Error instances serialize to name/message (+stack)', () => {
+    it('Error instances serialize to name/message only — the stack never leaks', () => {
         const out = sanitize(new TypeError('boom')) as Record<string, unknown>;
         expect(out['name']).toBe('TypeError');
         expect(out['message']).toBe('boom');
+        expect('stack' in out).toBe(false);
     });
 
     it('Maps keep entries, Sets keep values (no truncation by default)', () => {
@@ -466,11 +465,6 @@ describe('sanitize / safeSerialize', () => {
 
     it('RegExp stringifies to its literal form', () => {
         expect(sanitize(/ab+c/gi)).toBe('/ab+c/gi');
-    });
-
-    it('safeSerialize matches sanitize output', () => {
-        const value = { nested: { list: [1, 2n, Number.NaN] }, sym: Symbol.for('s') };
-        expect(safeSerialize(value)).toEqual(sanitize(value));
     });
 
     it('deeply nested acyclic trees walk fine (depth limit honored, not exceeded)', () => {

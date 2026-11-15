@@ -1,20 +1,28 @@
 /**
  * Named conditions — the reusable unit of a design-contracts assertion.
  *
- * A named condition is a plain data structure plus a `check()` method. It is
- * deliberately NOT callable: conditions travel through contracts, evaluators
- * and error payloads, and a `.check(...)` call is unambiguous about where
- * evaluation happens. Calling a condition as a function never worked, is not
- * supported, and never will be.
+ * A named condition is a plain data structure plus an `evaluate()` (raw outcome)
+ * and `check()` (boolean verdict) method pair. It is deliberately NOT callable:
+ * conditions travel through contracts, evaluators and error payloads, and a
+ * `.check(...)` call is unambiguous about where evaluation happens. Calling a
+ * condition as a function never worked, is not supported, and never will be.
  *
  * Composites (`all`, `any`, `not`) are named conditions too, so they nest
- * freely and report which component failed through `lastFailure`.
+ * freely and report which component failed through `lastFailure`. Plain leaf
+ * conditions record a failure with `operator: 'condition'` when their own
+ * predicate goes falsy.
  */
 
 import { isThenable } from '../utils/thenable.js';
 
-/** Which composite operator produced a condition. */
-export type ConditionOperator = 'all' | 'any' | 'not';
+/**
+ * Which operator produced a condition's `lastFailure`.
+ *
+ * `condition` marks a plain leaf condition failing on its own predicate —
+ * the shape carries no sub-structure (`index` is always `0`). The composite
+ * operators come from `all`/`any`/`not`.
+ */
+export type ConditionOperator = 'all' | 'any' | 'not' | 'condition';
 
 const noop = (): void => {};
 
@@ -28,19 +36,20 @@ const guarded = <T>(promise: Promise<T>): Promise<T> => {
 };
 
 /**
- * Details about the most recent failing `check()` call.
+ * Details about the most recent failing `check()` / `evaluate()` call.
  *
- * Only composite conditions populate this (plain conditions fail without
- * sub-structure). The shape is pure JSON-safe data so it can be attached
- * to error contexts without further processing.
+ * Composite conditions and plain leaf conditions populate this. The shape is
+ * pure JSON-safe data so it can be attached to error contexts without
+ * further processing.
  *
- * - `operator` — the composite that rejected the input.
+ * - `operator` — `'condition'` for a leaf condition that failed on its own
+ *   predicate, or the composite that rejected the input (`all`/`any`/`not`).
  * - `index` — zero-based index of the failed component in `all`, `0` for
- *   `not`, and `-1` for `any` (there is no single culprit, every child
- *   failed; see `components`).
- * - `conditionId` / `conditionName` — the failing child, or the composite
+ *   `not` (and for `condition`), and `-1` for `any` (there is no single
+ *   culprit, every child failed; see `components`).
+ * - `conditionId` / `conditionName` — the failing condition, or the composite
  *   itself for `any` failures.
- * - `message` — the failing child's own message override, if it had one.
+ * - `message` — the failing condition's own message override, if it had one.
  * - `cause` — the child's own `lastFailure`, when the child was itself a
  *   composite. Chains arbitrarily deep.
  * - `components` — per-child failures in declaration order, only for `any`.
@@ -58,15 +67,15 @@ export interface ConditionFailure {
 /**
  * A named condition.
  *
- * `lastFailure` is the only mutable field: every `check()` call clears it,
- * and composite operators repopulate it when they fail. Read it right after
- * a `false` result — later calls (possibly on other conditions) will have
- * cleared or replaced it. JS stays single-threaded and `check()` is fully
- * synchronous, so this is safe as long as you read it before returning to
- * the event loop.
+ * `lastFailure` is the only mutable field: every `evaluate()` / `check()`
+ * call clears it, and the evaluation repopulates it on failure. Read it
+ * right after a `false` result — later calls (possibly on other
+ * conditions) will have cleared or replaced it. JS stays single-threaded
+ * and `check()` is fully synchronous, so this is safe as long as you read
+ * it before returning to the event loop.
  *
- * `components` and `operator` are `undefined` for plain conditions created
- * via {@link condition}. `predicate` on a composite holds the composed
+ * `components` is `undefined` for plain conditions created via
+ * {@link condition}. `predicate` on a composite holds the composed
  * function; prefer `check()`, which additionally maintains `lastFailure`.
  */
 export interface NamedCondition<Args extends unknown[]> {
@@ -90,9 +99,32 @@ export interface NamedCondition<Args extends unknown[]> {
     readonly operator: ConditionOperator | undefined;
     /** Child conditions for composites, in declaration order; undefined otherwise. */
     readonly components: readonly NamedCondition<Args>[] | undefined;
-    /** Failure details from the most recent `check()` call, or undefined after success. */
+    /** Failure details from the most recent `check()`/`evaluate()` call, or undefined after success. */
     lastFailure: ConditionFailure | undefined;
-    /** Evaluate the condition. Refreshes `lastFailure` synchronously. */
+    /**
+     * Evaluate the condition and return the RAW outcome.
+     *
+     * @internal Evaluators call this to detect thenable predicate results and
+     * composite settlements at the call site; user code should call
+     * {@link check} instead. The raw outcome is whatever the predicate
+     * returned — truthiness has not been applied yet.
+     *
+     * `lastFailure` bookkeeping happens exactly like in `check()`: cleared at
+     * entry, repopulated on failure — synchronously for synchronous
+     * predicates, or when the recorded `pendingVerdict` settles for thenable
+     * ones. The predicate runs exactly once per call.
+     */
+    evaluate(...args: Args): unknown;
+    /**
+     * Evaluate the condition and coerce the outcome to a boolean verdict.
+     *
+     * For synchronous predicates this is the honest verdict
+     * (`Boolean(predicate(...))`). A thenable predicate result counts as
+     * truthy here, mirroring the documented sync-path semantics — use
+     * {@link checkAsync} (or `evaluate()` + `pendingVerdict`) when the settled
+     * verdict matters. Refreshes `lastFailure` synchronously for synchronous
+     * evaluation.
+     */
     check(...args: Args): boolean;
     /**
      * Async variant of `check()`. Evaluates the condition fully, awaiting
@@ -111,18 +143,19 @@ export interface NamedCondition<Args extends unknown[]> {
      */
     checkAsync?(...args: Args): Promise<boolean>;
     /**
-     * Internal hand-off used by evaluators that ran `check()` synchronously
-     * but discovered that some part of the evaluation returned a thenable.
+     * Internal hand-off used by evaluators that ran `evaluate()`/`check()`
+     * synchronously but discovered that some part of the evaluation returned
+     * a thenable.
      *
      * Set to a promise that resolves to the FINAL boolean verdict of this
-     * `check()` call (after awaiting every thenable seen during it) or
-     * rejects if one of those predicates rejected. It stays `undefined`
-     * after a fully synchronous check, in which case the sync boolean is
-     * final and no await is needed.
+     * evaluation (after awaiting every thenable seen during it) or rejects
+     * if one of those predicates rejected. It stays `undefined` after a
+     * fully synchronous evaluation, in which case the sync boolean is final
+     * and no await is needed.
      *
-     * Await it at most once per `check()` call; the `check()` implementation
-     * guarantees `lastFailure` is refreshed before the promise settles.
-     * Cleared at the start of every `check()` / `checkAsync()`. Not
+     * Await it at most once per evaluation; the implementation guarantees
+     * `lastFailure` is refreshed before the promise settles. Cleared at the
+     * start of every `evaluate()` / `check()` / `checkAsync()`. Not
      * JSON-serializable — it holds a promise, don't read it from user code.
      */
     pendingVerdict?: Promise<boolean> | undefined;
@@ -188,6 +221,17 @@ const childFailure = <Args extends unknown[]>(
     conditionName: child.name,
     message: child.message,
     cause: child.lastFailure,
+    components: undefined,
+});
+
+/** lastFailure payload for a leaf condition whose own predicate went falsy. */
+const leafFailure = <Args extends unknown[]>(self: NamedCondition<Args>): ConditionFailure => ({
+    operator: 'condition',
+    index: 0,
+    conditionId: self.id,
+    conditionName: self.name,
+    message: self.message,
+    cause: undefined,
     components: undefined,
 });
 
@@ -461,7 +505,7 @@ interface ConditionInit<Args extends unknown[]> {
 
 const defineCondition = <Args extends unknown[]>(
     init: ConditionInit<Args>,
-    evaluate: (self: NamedCondition<Args>, args: Args) => boolean,
+    evaluate: (self: NamedCondition<Args>, args: Args) => unknown,
     evaluateAsync: (self: NamedCondition<Args>, args: Args) => Promise<boolean>,
 ): NamedCondition<Args> => {
     const condition: NamedCondition<Args> = {
@@ -474,10 +518,13 @@ const defineCondition = <Args extends unknown[]>(
         components: init.components,
         lastFailure: undefined,
         pendingVerdict: undefined,
-        check(...args: Args): boolean {
+        evaluate(...args: Args): unknown {
             condition.lastFailure = undefined;
             condition.pendingVerdict = undefined;
             return evaluate(condition, args);
+        },
+        check(...args: Args): boolean {
+            return boolOf(condition.evaluate(...args));
         },
         checkAsync(...args: Args): Promise<boolean> {
             condition.lastFailure = undefined;
@@ -504,6 +551,9 @@ const normalize = <Args extends unknown[]>(input: ConditionInput<Args>): NamedCo
  * (promises and thenables count as truthy when reached synchronously, which
  * is why evaluators should use the async evaluation paths for anything
  * possibly asynchronous — see `checkAsync()` and the contract core).
+ * A falsy verdict records the condition's own failure (`operator:
+ * 'condition'`) in `lastFailure`; a thenable records it once the thenable
+ * settles.
  *
  * ```ts
  * const positiveNumber = condition<[number]>((n) => n > 0, {
@@ -527,17 +577,32 @@ export function condition<Args extends unknown[]>(
             components: undefined,
         },
         // sync path passes the raw value through (thenable stays detectable
-        // for evaluators); async path settles it for the boolean verdict
+        // for evaluators); a falsy verdict records the leaf's own failure.
+        // async path settles it for the boolean verdict
         (self, args) => {
             const raw = predicate(...args) as unknown;
             if (isThenable(raw)) {
-                self.pendingVerdict = guarded(Promise.resolve(raw).then(boolOf));
+                // the sync verdict is "truthy, verdict unknown" — lastFailure
+                // stays cleared until the settlement chain stamps it
+                self.pendingVerdict = guarded(
+                    Promise.resolve(raw)
+                        .then(boolOf)
+                        .then((verdict) => {
+                            self.lastFailure = verdict ? undefined : leafFailure(self);
+                            return verdict;
+                        }),
+                );
+                return raw;
             }
-            return raw as boolean;
+            const verdict = boolOf(raw);
+            self.lastFailure = verdict ? undefined : leafFailure(self);
+            return raw;
         },
-        async (_self, args) => {
+        async (self, args) => {
             const raw = predicate(...args) as unknown;
-            return boolOf(isThenable(raw) ? await raw : raw);
+            const verdict = boolOf(isThenable(raw) ? await raw : raw);
+            self.lastFailure = verdict ? undefined : leafFailure(self);
+            return verdict;
         },
     );
 }

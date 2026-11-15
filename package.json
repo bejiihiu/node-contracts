@@ -72,7 +72,7 @@
         "test": "vitest run",
         "test:watch": "vitest",
         "coverage": "vitest run --coverage",
-        "bench": "vitest bench --passWithNoTests --reporter=verbose",
+        "bench": "vitest bench --reporter=verbose",
         "lint": "biome check .",
         "format": "biome format --write .",
         "typecheck": "tsc --noEmit",

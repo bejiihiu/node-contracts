@@ -35,7 +35,7 @@
  * the audit adapter). `undefined` fields are omitted entirely.
  */
 
-import { safeSerialize } from '../core/sanitize.js';
+import { sanitize } from '../core/sanitize.js';
 import type { ContractViolationError } from '../errors/index.js';
 import type { AuditRecord } from '../runtime/index.js';
 
@@ -160,11 +160,11 @@ function violationAttributes(
     violation: ContractViolationError,
     includeContext: boolean,
 ): Record<string, OtelAttributeValue> {
-    // safeSerialize is total, but JSON.stringify itself isn't guaranteed — drop the attribute on failure
+    // sanitize is total, but JSON.stringify itself isn't guaranteed — drop the attribute on failure
     let serializedContext: string | undefined;
     if (includeContext && violation.context !== undefined) {
         try {
-            serializedContext = JSON.stringify(safeSerialize(violation.context));
+            serializedContext = JSON.stringify(sanitize(violation.context));
         } catch {
             serializedContext = undefined;
         }

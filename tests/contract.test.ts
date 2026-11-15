@@ -759,4 +759,59 @@ describe('contract()', () => {
             expect(wrapped(10, 2)).toBe(5);
         });
     });
+
+    describe('foreign structural conditions', () => {
+        // hand-rolled condition: satisfies isNamedCondition (brand symbol plus
+        // id/name/check/predicate) but implements neither evaluate() nor
+        // checkAsync() — the contract core must fall back to check()
+        const makeForeign = (predicate: (...args: never[]) => unknown): never => {
+            const foreign = {
+                _tag: 'design-contracts/condition',
+                id: 'foreign-1',
+                name: 'foreigny',
+                message: undefined,
+                operator: undefined,
+                components: undefined,
+                lastFailure: undefined,
+                predicate,
+                check(...args: unknown[]): boolean {
+                    return Boolean((predicate as (...a: unknown[]) => unknown)(...args));
+                },
+            };
+            Object.defineProperty(foreign, Symbol.for('design-contracts/named-condition'), {
+                value: true,
+                enumerable: false,
+            });
+            return foreign as never;
+        };
+
+        it('runs them in preconditions via the check() fallback', () => {
+            const passing = contract(divide, { pre: [makeForeign(() => true)] });
+            expect(passing(10, 2)).toBe(5);
+
+            const failing = contract(divide, { pre: [makeForeign(() => false)] });
+            const caught = catchError(() => failing(10, 2));
+            expect(caught).toBeInstanceOf(PreconditionViolationError);
+        });
+
+        it('runs them in postconditions via the check() fallback', () => {
+            const wrapped = contract(divide, { post: [makeForeign(() => false)] });
+
+            const caught = catchError(() => wrapped(10, 2));
+            expect(caught).toBeInstanceOf(PostconditionViolationError);
+        });
+
+        it('runs them in on-error checks via the check() fallback', () => {
+            const boom = new Error('boom');
+            const failing = (): number => {
+                throw boom;
+            };
+            const wrapped = contract(failing, { onError: [makeForeign(() => false)] });
+
+            const caught = catchError(() => wrapped());
+            // the on-error condition fails → violation is thrown in strict,
+            // the original error stays intact when it passes
+            expect(caught).toBeInstanceOf(OnErrorViolationError);
+        });
+    });
 });

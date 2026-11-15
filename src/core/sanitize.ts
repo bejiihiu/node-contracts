@@ -51,6 +51,8 @@ function clampOr(value: number | undefined, fallback: number): number {
  *   become strings, functions become '[Function: name]'
  * - `undefined` becomes the string '[undefined]' (object keys are kept)
  * - `Date`/`RegExp`/`Error`/typed arrays get compact, readable forms
+ *   (errors serialize to `name`/`message` only — the stack is never
+ *   serialized, mirroring `ContractViolationError.toJSON()`)
  * - everything else: plain objects spread, class instances additionally get
  *   a `'[type]'` key with the constructor name
  */
@@ -127,9 +129,6 @@ export function sanitize(value: unknown, options?: SanitizeOptions): SanitizedJs
                 name: truncate(input.name),
                 message: truncate(input.message),
             };
-            if (typeof input.stack === 'string' && input.stack.length > 0) {
-                out['stack'] = truncate(input.stack);
-            }
             return out;
         }
 
@@ -227,16 +226,4 @@ export function sanitize(value: unknown, options?: SanitizeOptions): SanitizedJs
     };
 
     return walk(value, 0);
-}
-
-/**
- * Squash any value into a JSON-safe tree and hand it back as plain `unknown`.
- *
- * Same machinery as {@link sanitize}; this is the untyped entry point for
- * callers that just want to log or attach something without a cast. See
- * {@link sanitize} for the exact guarantees (cycles → `[Circular]`, depth
- * and item limits, never throws).
- */
-export function safeSerialize(value: unknown): unknown {
-    return sanitize(value);
 }

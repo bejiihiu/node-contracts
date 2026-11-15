@@ -14,7 +14,7 @@ import {
 } from '../src/index.js';
 import {
     canSkip,
-    formatViolation,
+    formatReport,
     getEffectiveConfig,
     reportViolation,
 } from '../src/runtime/index.js';
@@ -530,8 +530,8 @@ describe('audit records', () => {
 });
 
 describe('warn fallback and handler failures', () => {
-    it('formatViolation renders a compact single-line report', () => {
-        const line = formatViolation({
+    it('formatReport renders a compact single-line report', () => {
+        const line = formatReport({
             kind: 'precondition',
             message: 'divisor must not be zero',
             contractName: 'divideContract',

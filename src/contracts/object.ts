@@ -111,6 +111,8 @@ import type { ContractViolationDetails } from '../errors/index.js';
 import { InvariantViolationError } from '../errors/index.js';
 import type { Mode } from '../runtime/index.js';
 import { canSkip, getEffectiveConfig, isMode, reportViolation } from '../runtime/index.js';
+import { hideStack } from '../utils/stack.js';
+import { isThenable } from '../utils/thenable.js';
 
 /**
  * One invariant of a contracted object.
@@ -149,19 +151,6 @@ type AnyFunction = (...args: never[]) => unknown;
 const initCheckName = '<init>';
 const setCheckName = '<set>';
 
-function isThenable(value: unknown): value is PromiseLike<unknown> {
-    if ((typeof value !== 'object' && typeof value !== 'function') || value === null) {
-        return false;
-    }
-    try {
-        // hostile thenables may throw on the .then probe — if they do, treat
-        // the value as a plain object and let the caller deal with it
-        return typeof (value as { then?: unknown }).then === 'function';
-    } catch {
-        return false;
-    }
-}
-
 function propToString(prop: PropertyKey): string {
     return typeof prop === 'symbol' ? prop.toString() : String(prop);
 }
@@ -190,15 +179,6 @@ function defaultContractName(target: object, name: string | undefined): string {
         return ctorName;
     }
     return 'object';
-}
-
-function suppressStack(error: Error): void {
-    try {
-        // v8/jsc: writable own prop; spidermonkey: accessor with a setter — both fine
-        (error as { stack?: unknown }).stack = undefined;
-    } catch {
-        // stack could not be suppressed — whatever, the rest of the error is intact
-    }
 }
 
 /**
@@ -327,7 +307,7 @@ export function contractObject<T extends object>(
                 };
                 const error = new InvariantViolationError(userMessage, details);
                 if (!captureStack) {
-                    suppressStack(error);
+                    hideStack(error);
                 }
                 reportViolation(
                     {

@@ -21,9 +21,9 @@
 
 import type { ContractViolationError } from '../errors/base.js';
 
-import { hostConsole, hostProcess } from './host';
-import type { Mode, ViolationCategory } from './modes';
-import { isMode, isViolationCategory, MODES, VIOLATION_CATEGORIES } from './modes';
+import { hostConsole, hostProcess } from './host.js';
+import type { Mode, ViolationCategory } from './modes.js';
+import { isMode, isViolationCategory, MODES, VIOLATION_CATEGORIES } from './modes.js';
 
 /** A single audit entry emitted in `audit` mode. `timestamp` is `Date.now()`. */
 export interface AuditRecord {

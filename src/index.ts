@@ -62,7 +62,6 @@ export {
     mergeClassContracts,
     mergeContractOptions,
     not,
-    safeSerialize,
     sanitize,
 } from './core/index.js';
 export type { ContractMethodOptions } from './decorators/index.js';

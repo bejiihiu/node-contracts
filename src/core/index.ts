@@ -25,4 +25,4 @@ export {
     mergeContractOptions,
 } from './inheritance.js';
 export type { SanitizedJson, SanitizeOptions } from './sanitize.js';
-export { safeSerialize, sanitize } from './sanitize.js';
+export { sanitize } from './sanitize.js';
