@@ -201,7 +201,9 @@ describe('mergeContractOptions() post — union, base first', () => {
 describe('mergeContractOptions() onError — union, base first', () => {
     it('executes both base and derived on-error predicates, base first', () => {
         const seen: string[] = [];
+        // biome-ignore lint/complexity/noCommaOperator: compact predicate for test fixtures
         const base = [() => (seen.push('base'), true)];
+        // biome-ignore lint/complexity/noCommaOperator: compact predicate for test fixtures
         const derived = [() => (seen.push('derived'), true)];
         const merged = mergeContractOptions<[number], number>(
             { onError: base },
@@ -618,6 +620,7 @@ describe('mergeClassContracts()', () => {
     });
 
     it('does not merge statics unless opted in', () => {
+        // biome-ignore lint/complexity/noStaticOnlyClass: static-only fixture, that is the point
         class StaticBase {
             static work(): number {
                 return 50;
@@ -644,6 +647,7 @@ describe('mergeClassContracts()', () => {
     });
 
     it('reports the derived static post at index 1 when base passes and derived fails', () => {
+        // biome-ignore lint/complexity/noStaticOnlyClass: static-only fixture, that is the point
         class IndexedBase {
             static work(): number {
                 return 50;

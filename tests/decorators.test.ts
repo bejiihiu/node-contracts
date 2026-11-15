@@ -48,6 +48,7 @@ const decocer = (options?: unknown): ((value: unknown, context: unknown) => unkn
     ) => unknown;
 
 const makeContext = (
+    // biome-ignore lint/complexity/noBannedTypes: Class constructor type needed for prototype introspection
     ctor: Function,
     key: string,
     kind: MemberKind | 'field',
@@ -70,6 +71,7 @@ const makeContext = (
 
 /** apply the decorator to an existing member (call after the class is defined) */
 const dec = (
+    // biome-ignore lint/complexity/noBannedTypes: Class constructor type needed for prototype introspection
     ctor: Function,
     key: string,
     options: unknown,
@@ -531,11 +533,13 @@ describe('@contractMethod on a setter', () => {
 });
 
 describe('@contractMethod on static members', () => {
+    // biome-ignore lint/complexity/noStaticOnlyClass: static-only fixture testing static dispatch semantics
     class MathBox {
         static twice(x: number): number {
             return x * 2;
         }
         static whoAmI(): unknown {
+            // biome-ignore lint/complexity/noThisInStatic: the scenario needs `this` in a static member to observe dispatch behavior
             return this;
         }
     }
@@ -555,6 +559,7 @@ describe('@contractMethod on static members', () => {
         const baseStaticPost = condition<[number, ContractContext<[], number>]>((r) => r >= 0, {
             name: 'baseStaticPost',
         });
+        // biome-ignore lint/complexity/noStaticOnlyClass: static-only fixture, the scenario under test
         class StaticBase {
             static work(): number {
                 return -1;
@@ -581,6 +586,7 @@ describe('@contractMethod on static members', () => {
     });
 
     it('provides disjunction semantics for merged static preconditions', () => {
+        // biome-ignore lint/complexity/noStaticOnlyClass: static-only fixture, the scenario under test
         class DisjBase {
             static pick(x: number): number {
                 return x;

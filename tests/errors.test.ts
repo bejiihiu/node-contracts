@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ContractViolationJSON } from '../src/index.js';
 import {
     AssertionViolationError,
     ContractViolationError,
@@ -356,9 +357,11 @@ describe('toJSON', () => {
             cause: new Error('inner'),
         }).toJSON();
         expect(() => JSON.stringify(json)).not.toThrow();
-        const roundTripped = JSON.parse(JSON.stringify(json)) as Record<string, unknown>;
-        expect(roundTripped['kind']).toBe('precondition');
-        expect(roundTripped['stack']).toBeUndefined();
+        const roundTripped = JSON.parse(JSON.stringify(json)) as ContractViolationJSON & {
+            stack?: unknown;
+        };
+        expect(roundTripped.kind).toBe('precondition');
+        expect(roundTripped.stack).toBeUndefined();
     });
 });
 
