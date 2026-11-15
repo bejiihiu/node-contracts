@@ -8,6 +8,8 @@ Yes — that is the design. Predicates should be cheap and side-effect free, and
 - `NODE_ENV=production` defaults to `off` automatically (unless `NODE_CONTRACTS_MODE` overrides).
 - Compile-time define (`__DESIGN_CONTRACTS_ENABLED__: false`) strips the checks from your bundle entirely (behavior-wise guaranteed; physical removal depends on your minifier).
 
+`assert()` plays by the same rules — under `off`/`silent` (or `disabled: ['assertion']`) it is a no-op, under `warn` it reports without throwing, under `audit` it emits a record with `kind: 'assertion'`.
+
 What you should not do is run `strict` in production and catch the violations somewhere upstack to "handle" them — at that point the contract is acting as validation, not as a contract.
 
 ## How does this relate to Zod? Do I migrate my schemas?

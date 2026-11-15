@@ -6,7 +6,7 @@ Design rules that hold for all adapters:
 
 - **Nothing connects implicitly** — no side effects at import time, no global hooks.
 - **No hard dependencies** — pino, winston, `@opentelemetry/api` are not dependencies of this package. Adapters are structurally typed; whatever you pass just needs the right shape.
-- **`includeContext` defaults to `false` everywhere** — context can carry sensitive data. Opt in per adapter; when enabled, context is passed through `safeSerialize` (cycles cannot crash your logger).
+- **`includeContext` defaults to `false` everywhere** — context can carry sensitive data. Opt in per adapter; when enabled, context is passed through `sanitize` (cycles cannot crash your logger).
 - **Handler failures never break your app** — exceptions from `warn`/`audit` handlers are caught and written to `console.error` by the runtime.
 
 All examples below are complete and runnable as written (minus having pino/winston installed when you actually use them). See [examples/08-telemetry.ts](../examples/08-telemetry.ts) for the diagnostics_channel flow end-to-end.
@@ -165,6 +165,8 @@ Channels and payloads:
 Custom channel names: `diagnosticsChannelAdapter('my-org:violation')` — blank/empty names throw `TypeError`. The same probe logic is exported for subscribers (`loadDiagnosticsChannel()`, `getViolationChannel()`, `getAuditChannel()`) if you cannot use static imports.
 
 The adapter throws a descriptive error **at creation** if `diagnostics_channel` is genuinely unavailable — no silent no-ops on exotic runtimes.
+
+Events delivered to subscribers are **read-only**: the objects on the channel are live references into the runtime's reporting machinery — mutate them and you corrupt the record other subscribers see (or crash the caller). Read what you need, copy it if you must keep it, never write to it.
 
 ## console
 

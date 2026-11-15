@@ -6,7 +6,7 @@ design-contracts checks the promises your code makes to itself while the program
 
 [![npm version](https://img.shields.io/npm/v/design-contracts.svg)](https://www.npmjs.com/package/design-contracts)
 [![CI](https://github.com/bejiihiu/node-contracts/actions/workflows/ci.yml/badge.svg)](https://github.com/bejiihiu/node-contracts/actions/workflows/ci.yml)
-[![license](https://img.shields.io/npm/l/design-contracts.svg)](LICENSE)
+[![license](https://img.shields.io/npm/l/design-contracts.svg)](https://github.com/bejiihiu/node-contracts/blob/main/LICENSE)
 
 ## What it does
 
@@ -23,11 +23,11 @@ design-contracts checks the promises your code makes to itself while the program
 
 ## Not types, not Zod — on purpose
 
-TypeScript's static types describe shapes at compile time, and validators like Zod check data at the boundary — both are excellent at what they do, and neither can see inside your own functions at runtime. Contracts fill that gap: they verify behavior where types cannot reach and where an invalid state would otherwise propagate silently. Use all three layers together — types at the compiler, schemas at the edges, contracts inside. See docs/concepts.md for the full rationale and docs/faq.md for common questions.
+TypeScript's static types describe shapes at compile time, and validators like Zod check data at the boundary — both are excellent at what they do, and neither can see inside your own functions at runtime. Contracts fill that gap: they verify behavior where types cannot reach and where an invalid state would otherwise propagate silently. Use all three layers together — types at the compiler, schemas at the edges, contracts inside. See [concepts](https://github.com/bejiihiu/node-contracts/blob/main/docs/concepts.md) for the full rationale and [the FAQ](https://github.com/bejiihiu/node-contracts/blob/main/docs/faq.md) for common questions.
 
 ## Installation
 
-Installation instructions (npm, Bun, pnpm) and a first-working-example guide live in docs/getting-started.md. The package runs on Node.js 18 or later and on Bun, ships both ESM and CommonJS builds, and includes type definitions for both.
+Installation instructions (npm, Bun, pnpm) and a first-working-example guide live in [getting-started](https://github.com/bejiihiu/node-contracts/blob/main/docs/getting-started.md). The package runs on Node.js 18 or later and on Bun, ships both ESM and CommonJS builds, and includes type definitions for both.
 
 ## Enforcement modes
 
@@ -41,31 +41,31 @@ Contracts should not be an all-or-nothing decision. Every contract can run in on
 | audit  | Predicates run and violations are delivered as structured records to your telemetry, but nothing throws. Built for production. |
 | off    | Checks are disabled entirely; predicates are never called, so disabled code costs nothing.                                     |
 
-The modes documentation covers each one in depth, including rollout recipes and per-contract overrides: docs/modes.md.
+The [modes documentation](https://github.com/bejiihiu/node-contracts/blob/main/docs/modes.md) covers each one in depth, including rollout recipes and per-contract overrides.
 
 ## Performance, honestly
 
-Contracts are not free — every checked call pays for the wrapper and for the conditions you attach, and snapshots in particular cost a copy per call. Whether that matters depends on where the contract lives: a check on a payment authorization is noise; a check in a tight inner loop may not be. The published methodology, measured numbers for the current release, and candid caveats are in docs/benchmarks.md. Measure your own hot paths before wrapping them.
+Contracts are not free — every checked call pays for the wrapper and for the conditions you attach, and snapshots in particular cost a copy per call. Whether that matters depends on where the contract lives: a check on a payment authorization is noise; a check in a tight inner loop may not be. The published methodology, measured numbers for the current release, and candid caveats are in [benchmarks](https://github.com/bejiihiu/node-contracts/blob/main/docs/benchmarks.md). Measure your own hot paths before wrapping them.
 
 ## Documentation
 
-| Page                     | What it covers                                                                 |
-| ------------------------ | ------------------------------------------------------------------------------ |
-| docs/getting-started.md  | Install, first contract, what happens on a violation                           |
-| docs/concepts.md         | The philosophy — contracts vs validation, when to use each                     |
-| docs/api.md              | Complete API reference — contracts, conditions, assertions, decorators, config |
-| docs/errors.md           | The error hierarchy, message format, and writing handlers                      |
-| docs/modes.md            | The five enforcement modes in depth, plus rollout recipes                      |
-| docs/inheritance.md      | Liskov rules, precondition disjunction, postcondition union                    |
-| docs/async.md            | Async contracts, async predicates, thenables, concurrency                      |
-| docs/object-contracts.md | Invariants for objects and classes via proxies                                 |
-| docs/adapters.md         | pino, winston, OpenTelemetry, diagnostics_channel, and the console             |
-| docs/benchmarks.md       | Methodology, measured overhead, honest caveats                                 |
-| docs/migration.md        | Adding contracts to three critical functions in fifteen minutes                |
-| docs/faq.md              | Frequent questions — production safety, Zod, minification, decorators          |
-| docs/index.md            | The full documentation index                                                   |
+| Page | What it covers |
+| ---- | -------------- |
+| [Getting started](https://github.com/bejiihiu/node-contracts/blob/main/docs/getting-started.md) | Install, first contract, what happens on a violation |
+| [Concepts](https://github.com/bejiihiu/node-contracts/blob/main/docs/concepts.md) | The philosophy — contracts vs validation, when to use each |
+| [API reference](https://github.com/bejiihiu/node-contracts/blob/main/docs/api.md) | Complete API reference — contracts, conditions, assertions, decorators, config |
+| [Errors](https://github.com/bejiihiu/node-contracts/blob/main/docs/errors.md) | The error hierarchy, message format, and writing handlers |
+| [Modes](https://github.com/bejiihiu/node-contracts/blob/main/docs/modes.md) | The five enforcement modes in depth, plus rollout recipes |
+| [Inheritance](https://github.com/bejiihiu/node-contracts/blob/main/docs/inheritance.md) | Liskov rules, precondition disjunction, postcondition union |
+| [Async](https://github.com/bejiihiu/node-contracts/blob/main/docs/async.md) | Async contracts, async predicates, thenables, concurrency |
+| [Object contracts](https://github.com/bejiihiu/node-contracts/blob/main/docs/object-contracts.md) | Invariants for objects and classes via proxies |
+| [Adapters](https://github.com/bejiihiu/node-contracts/blob/main/docs/adapters.md) | pino, winston, OpenTelemetry, diagnostics_channel, and the console |
+| [Benchmarks](https://github.com/bejiihiu/node-contracts/blob/main/docs/benchmarks.md) | Methodology, measured overhead, honest caveats |
+| [Migration](https://github.com/bejiihiu/node-contracts/blob/main/docs/migration.md) | Adding contracts to three critical functions in fifteen minutes |
+| [FAQ](https://github.com/bejiihiu/node-contracts/blob/main/docs/faq.md) | Frequent questions — production safety, Zod, minification, decorators |
+| [Documentation index](https://github.com/bejiihiu/node-contracts/blob/main/docs/index.md) | The full documentation index |
 
-Runnable, numbered examples covering the same ground live in examples/README.md — they run end to end and print what they do.
+Runnable, numbered examples covering the same ground live in [examples/README.md](https://github.com/bejiihiu/node-contracts/blob/main/examples/README.md) — they run end to end and print what they do.
 
 ## When not to use this
 
@@ -73,12 +73,12 @@ If all you need is to validate external input — a request body, a configuratio
 
 ## Contributing
 
-Bug reports and feature requests go through the GitHub issue tracker, and the contributing guide in CONTRIBUTING.md covers the development flow, testing, and release process. If you found a security issue instead, please follow SECURITY.md rather than opening a public issue.
+Bug reports and feature requests go through the [GitHub issue tracker](https://github.com/bejiihiu/node-contracts/issues), and the [contributing guide](https://github.com/bejiihiu/node-contracts/blob/main/CONTRIBUTING.md) covers the development flow, testing, and release process. If you found a security issue instead, please follow [SECURITY.md](https://github.com/bejiihiu/node-contracts/blob/main/SECURITY.md) rather than opening a public issue.
 
 ## Status
 
-design-contracts 1.0.0 is a stable release. The public API follows semver, and breaking changes — when they happen — are documented with a migration path in docs/migration.md.
+design-contracts 1.0.0 is a stable release. The public API follows semver, and breaking changes — when they happen — are documented with a migration path in [migration.md](https://github.com/bejiihiu/node-contracts/blob/main/docs/migration.md). Changes are listed in [CHANGELOG.md](https://github.com/bejiihiu/node-contracts/blob/main/CHANGELOG.md).
 
 ## License
 
-MIT — see LICENSE.
+MIT — see [LICENSE](https://github.com/bejiihiu/node-contracts/blob/main/LICENSE).

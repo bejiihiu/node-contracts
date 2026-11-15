@@ -35,7 +35,8 @@ Error
 Notes:
 
 - `conditionIndex` is **0-based**, counted within the `pre` / `post` / `onError` / `invariant` array.
-- `context` is never populated implicitly. Raw arguments, secrets and PII are **your** responsibility — pass nothing, or pass a sanitized record.
+- `AssertionViolationError` is the one that can also _not_ be thrown: in `warn`/`audit` an assertion failure is reported through your handlers instead of throwing, and under `off`/`silent` (or `disabled: ['assertion']`) `assert()` is a no-op. The strict-mode throw is the default path described here.
+- `context` is never populated implicitly. Raw arguments, secrets and PII are **your** responsibility — pass nothing, or pass a sanitized record. Context attached via `assert(condition, message, context)` has already been through `sanitize()` — an `Error` value serializes to `{ name, message }` only; the stack is never serialized.
 - `cause` follows the standard `Error` `cause` semantics: failing predicates that are themselves composites chain their `ConditionFailure` tree there. When a method fails _and_ the invariant broke on settle, the method's original error is preserved as `cause`.
 - For optional fields, check with `!== undefined` (`in` is unreliable — class-field declarations may create own properties with value `undefined`).
 

@@ -14,6 +14,8 @@
 
 The one non-obvious property: **`silent` and `off` do not evaluate predicates.** "Skip" means skip — no wasted work and no accidental side effects inside predicates. Contrast with "evaluate, catch, swallow", which is strictly worse and is deliberately not how this library behaves.
 
+`assert()` / `assert.fail()` play by the same rules: under `off`/`silent` (or with `disabled: ['assertion']`) they are no-ops — nothing throws and no handler runs; under `warn` the failure is reported to `onViolation` without throwing; under `audit` it is emitted as an `AuditRecord` with `kind: 'assertion'`; only `strict` throws.
+
 ## Setting the mode
 
 Three layers, highest priority first:

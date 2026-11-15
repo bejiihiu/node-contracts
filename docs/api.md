@@ -138,8 +138,8 @@ positive.lastFailure;
 - **Name resolution**: `options.name` → `predicate.name` → `'anonymous'`.
 - **ID**: auto-assigned `condition-N` from a module-local monotonic counter, or set via `options.id` for stability across restarts.
 - Named conditions are **not callable** — they carry a `check(...args): boolean` method. Predicates that throw propagate as-is (never wrapped, never swallowed).
-- `check()` is synchronous. Composite conditions additionally expose `checkAsync(...args)` (see below) — used automatically when everything settles asynchronously.
-- `lastFailure` is valid synchronously after a `false` result; for async settlement read it after `checkAsync()` / the async phase settles.
+- `check()` is synchronous and returns a boolean. Every condition — leaves and composites alike — also exposes `checkAsync(...args)` (see below), used automatically when anything in the evaluation settles asynchronously.
+- `lastFailure` is valid synchronously after a `false` result; leaves record `operator: 'condition'` and composites record their own operator. For async settlement read it after `checkAsync()` / the async phase settles.
 
 ### `condition` options
 
@@ -181,7 +181,7 @@ isNamedCondition((n: number) => n > 0); // false
 
 ### `ConditionFailure`
 
-`lastFailure` shape (all JSON-safe):
+`lastFailure` shape (all JSON-safe). Leaf conditions populate it on their own failure with `operator: 'condition'` and `index: 0`; composites populate their own operator and chain the failing child through `cause`:
 
 ```ts
 interface ConditionFailure {
@@ -215,6 +215,7 @@ function total(lines: readonly Line[]): number {
 - `assert.fail(message?, context?): never` — unconditionally throws `AssertionViolationError`. Useful as an "unreachable" marker.
 - The assertion signature `asserts condition` narrows the type at the call site.
 - `context` is passed through `sanitize()` — a record stays as-is; any other value is squashed into `{ value: ... }`; cycles and non-JSON values are replaced with safe markers. It never throws, regardless of what you pass.
+- `assert` follows the same enforcement machinery as contracts. Under `off`/`silent`, or with `disabled: ['assertion']`, it is a **no-op** — nothing throws, no handlers run, and the context is not even sanitized. Under `warn` it reports the error to `onViolation` without throwing. Under `audit` it emits an `AuditRecord` with `kind: 'assertion'` (and calls `onViolation` if set). The compile-time flag `__DESIGN_CONTRACTS_ENABLED__: false` disables it the same way it disables everything else. Only `strict` (the default) throws.
 
 ---
 
@@ -388,7 +389,7 @@ Clears the global configuration back to environment-driven resolution and return
 
 ### `withConfig(config, fn): R`
 
-Runs `fn` with `config` applied for its dynamic extent — including across `await`s, thanks to AsyncLocalStorage. The config is snapshotted on entry (mutating your object afterwards has no effect). Nested `withConfig` calls layer outer→inner; inner wins per field. Throws if the ambient runtime has no AsyncLocalStorage and the fallback sync stack is exhausted (only a concern on exotic runtimes without `node:async_hooks`).
+Runs `fn` with `config` applied for its dynamic extent — including across `await`s, thanks to AsyncLocalStorage. The config is snapshotted on entry (mutating your object afterwards has no effect). Nested `withConfig` calls layer outer→inner; inner wins per field. On runtimes without AsyncLocalStorage a synchronous scope stack is used as a fallback — the scope still applies, but it does not survive `await`. There is no error to catch: the fallback is best-effort by design.
 
 ```ts
 import { withConfig } from 'design-contracts';
@@ -431,7 +432,7 @@ interface AuditRecord {
 
 ### Disabling categories
 
-`disabled: ViolationCategory[]` accepts any union of `'precondition' | 'postcondition' | 'invariant' | 'assertion' | 'on-error'`. Disabled categories are skipped entirely, regardless of mode. Per-contract `mode` does **not** override `disabled`; `disabled` wins.
+`disabled: ViolationCategory[]` accepts any union of `'precondition' | 'postcondition' | 'invariant' | 'assertion' | 'on-error'`. Disabled categories are skipped entirely, regardless of mode. Per-contract `mode` does **not** override `disabled`; `disabled` wins. All five categories are live — `'assertion'` disables `assert()` / `assert.fail()` exactly the way the other four disable their sections (no-op, no handlers, no error built).
 
 ---
 
@@ -448,7 +449,7 @@ isContractsCompiledIn(); // true unless your bundler defines the constant to fal
 Two layers to be honest about:
 
 - **Behavior (always guaranteed)**: with the flag `false`, predicates never execute and observable behavior does not depend on checks.
-- **Physical removal (minifier-dependent)**: the constant folds inside the flag module either way, but whether the dead branches elsewhere disappear depends on your minifier. terser's `compress` inlines the trivial `isContractsCompiledIn()` and drops them; esbuild's minifier folds the function but does not inline cross-module calls, so the gated branches remain (unreachable, not removed). Verify with your own bundle output if the last few bytes genuinely matter.
+- **Physical removal (minifier-dependent)**: behavior is always guaranteed, but physically deleting the check machinery requires a minifier that inlines the flag check at the call site — for example terser's `compress`. esbuild with `define` + treeshake folds the branch, but it does not remove the whole machinery from the bundle, so the gated code remains (unreachable, not removed). Verify with your own bundle output if the last few bytes genuinely matter.
 
 ### Bundler define recipes
 
@@ -554,20 +555,20 @@ try {
 
 ---
 
-## `sanitize(value, options?)` / `safeSerialize(value)`
+## `sanitize(value, options?)`
 
 JSON-safe serialization of hostile values, used internally for context squashing and exposed for your own logging:
 
 ```ts
-import { sanitize, safeSerialize } from 'design-contracts';
+import { sanitize } from 'design-contracts';
 
 sanitize({ a: 1, b: [1, 2, 3] }); // { a: 1, b: [1, 2, 3] }
-sanitize(new Map([['k', 'v']])); // { '[type]': 'Map', entries: ... } — compact form
+sanitize(new Map([['k', 'v']])); // { type: 'Map', size: 1, entries: [['k', 'v']] }
 ```
 
-Behavior: cycles → `'[Circular]'` (per-path active set), excessive depth → `'[MaxDepth]'`, item overflow → `'[... N more items]'`, long strings truncated with `...[truncated N chars]`, `bigint` → `'10n'`, non-finite numbers → `String(value)`, `undefined` → `'[undefined]'`, functions → `'[Function: name]'`, class instances → own enumerable props plus a `'[type]': ctor.name` key. Getters and `toJSON` are **never** invoked — hostile objects cannot crash the serializer.
+Behavior: cycles → `'[Circular]'` (per-path active set), excessive depth → `'[MaxDepth]'`, item overflow → `'[... N more items]'`, long strings truncated with `...[truncated N chars]`, `bigint` → `'10n'`, non-finite numbers → `String(value)`, `undefined` → `'[undefined]'`, functions → `'[Function: name]'`, `Map`/`Set` → `{ type, size, entries|values }`, `Error` → `{ name, message }` only (the stack is never serialized), class instances → own enumerable props plus a `'[type]': ctor.name` key. Getters and `toJSON` are **never** invoked — hostile objects cannot crash the serializer.
 
-Options (with clamps): `maxDepth` (default 4), `maxItems` (default 100), `maxStringLength` (default 500). `safeSerialize` is a thin alias of `sanitize(value)` with default options. Limitations: output is a _description_, not a round-trippable encoding — don't persist it and expect equality.
+Options (with clamps): `maxDepth` (default 4), `maxItems` (default 100), `maxStringLength` (default 500). Limitations: output is a _description_, not a round-trippable encoding — don't persist it and expect equality.
 
 ---
 
@@ -585,7 +586,7 @@ Ready-made telemetry adapters — factories returning `onViolation` / `onAudit` 
 
 Notes that matter:
 
-- All adapters take `includeContext` with **default `false`** — context can carry sensitive data. Opt in explicitly; when enabled, context is run through `safeSerialize`.
+- All adapters take `includeContext` with **default `false`** — context can carry sensitive data. Opt in explicitly; when enabled, context is run through `sanitize`.
 - `childBindings` (pino/winston) binds a child logger once at creation and emits through it; without `.child()` it throws `TypeError`.
 - OTel resolution order: `getActiveSpan()` (evaluated fresh per violation) → explicit `span` argument → dropped silently. Tracers (objects with `startSpan`) are rejected with `TypeError`.
 - diagnostics_channel uses the channels `CONTRACTS_VIOLATION_CHANNEL = 'design-contracts:violation'` and `CONTRACTS_AUDIT_CHANNEL = 'design-contracts:audit'`, events `{ violation }` / `{ record }`. Subscribing costs nothing when nobody listens.

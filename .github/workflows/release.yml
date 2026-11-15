@@ -31,6 +31,18 @@ jobs:
             - name: Install dependencies
               run: bun install --frozen-lockfile
 
+            # only relevant on tag pushes - dispatch publishes nothing anyway
+            - name: Verify tag matches package.json version
+              if: github.ref_type == 'tag'
+              run: |
+                  PKG_VERSION="$(node -p "require('./package.json').version")"
+                  TAG_VERSION="${GITHUB_REF_NAME#v}"
+                  if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+                      echo "::error::tag $GITHUB_REF_NAME does not match package.json version $PKG_VERSION"
+                      exit 1
+                  fi
+                  echo "tag $GITHUB_REF_NAME matches package.json version $PKG_VERSION"
+
             - name: Test
               run: bun run test
 
@@ -43,9 +55,24 @@ jobs:
             - name: attw
               run: bun run attw
 
+            # workflow_dispatch never publishes. It answers "is this ref
+            # releasable?" by running the same gates plus a tarball listing,
+            # without touching the registry or needing secrets. `npm pack
+            # --dry-run` prints the file list and validates the manifest with
+            # no auth and no side effects. (`npm publish --dry-run` was
+            # considered and skipped: it re-runs prepublishOnly and its
+            # registry round-trip can't be smoke-tested without NPM_TOKEN.)
+            - name: Pack contents (report only)
+              if: github.ref_type != 'tag'
+              run: |
+                  echo "::warning::workflow_dispatch does not publish to npm - tagging v*.*.* does that. This run only verifies the package."
+                  npm pack --dry-run
+
             # note: `npm publish` re-runs `prepublishOnly` (clean + build + publint + attw)
-            # on its own, the steps above are an explicit gate before the publish
+            # on its own, the steps above are an explicit gate before the publish.
+            # only tag pushes publish - dispatch stays a no-op for the registry.
             - name: Publish to npm
+              if: github.ref_type == 'tag'
               run: npm publish --provenance --access public
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
