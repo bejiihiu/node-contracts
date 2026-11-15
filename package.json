@@ -62,7 +62,8 @@
     },
     "files": [
         "dist",
-        "docs"
+        "docs",
+        "CHANGELOG.md"
     ],
     "engines": {
         "node": ">=18"
