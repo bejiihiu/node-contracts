@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-11-15
+
+Patch: concurrency semantics of object invariants.
+
+Published to GitHub Packages as `@bejiihiu/design-contracts` (registry `https://npm.pkg.github.com`); see [getting-started.md](./docs/getting-started.md#installation) for the `.npmrc` setup.
+
+### Fixed
+
+- `contractObject()` — an in-flight async method no longer suspends invariant checks for external property writes. Method scope (AsyncLocalStorage-backed) tracks "inside a wrapped method" per async chain instead of one shared `methodDepth` counter for the whole wrapper: writes via `this` inside a method still defer to the post-settle check, while writes from outside the method chain — even while the method is awaiting — are checked immediately. On runtimes without `AsyncLocalStorage`, the wrapper falls back to a synchronous-only suppression (best effort, documented).
+- Regression suite added covering external writes during pending async methods, nested wrapped calls, concurrent async methods on one object, and independence of multiple wrapped objects.
+
+### Migration
+
+Patch release; no API or behavior changes outside the fix above.
+
+[1.0.1]: https://github.com/bejiihiu/node-contracts/releases/tag/v1.0.1
+
 ## [1.0.0] - 2026-11-15
 
 First stable release.
