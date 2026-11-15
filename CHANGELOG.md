@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Patch: concurrency semantics of object invariants.
 
-Published to GitHub Packages as `@bejiihiu/design-contracts` (registry `https://npm.pkg.github.com`); see [getting-started.md](./docs/getting-started.md#installation) for the `.npmrc` setup.
+Published to npmjs and GitHub Packages as `@bejiihiu/design-contracts` (`https://registry.npmjs.org`, `https://npm.pkg.github.com` — same tag, same tarball); see [getting-started.md](./docs/getting-started.md#installation) for both install paths.
 
 ### Fixed
 

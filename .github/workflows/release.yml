@@ -9,6 +9,7 @@ on:
 permissions:
     contents: write # needed for creating the GitHub Release
     packages: write # needed for publishing to GitHub Packages
+    id-token: write # needed for npm provenance attestation
 
 jobs:
     release:
@@ -68,14 +69,11 @@ jobs:
                   echo "::warning::workflow_dispatch does not publish to GitHub Packages - tagging v*.*.* does that. This run only verifies the package."
                   npm pack --dry-run
 
-            # note: `npm publish` re-runs `prepublishOnly` (clean + build + publint + attw)
-            # on its own, the steps above are an explicit gate before the publish.
-            # only tag pushes publish - dispatch stays a no-op for the registry.
-            # GitHub Packages ignores --access; kept so the intent is explicit and
-            # the workflow keeps working if the package ever moves to npmjs.
+            # `--registry` overrides publishConfig, which now points at npmjs.
+            # GHP ignores --access; kept so the intent is explicit.
             - name: Publish to GitHub Packages
               if: github.ref_type == 'tag'
-              run: npm publish --access public
+              run: npm publish --registry=https://npm.pkg.github.com --access public
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -85,3 +83,67 @@ jobs:
               uses: softprops/action-gh-release@v2
               with:
                   generate_release_notes: true
+
+    publish-npmjs:
+        name: publish to npmjs
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Bun
+              uses: oven-sh/setup-bun@v2
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  registry-url: https://registry.npmjs.org
+
+            - name: Install dependencies
+              run: bun install --frozen-lockfile
+
+            # publish the package.json version from this run. on tag pushes it
+            # must equal the tag; on dispatch the tag check is skipped on purpose
+            # so an existing release (e.g. 1.0.1, already published to GHP) can be
+            # backfilled to npmjs without cutting a new tag.
+            - name: Verify tag matches package.json version
+              if: github.ref_type == 'tag'
+              run: |
+                  PKG_VERSION="$(node -p "require('./package.json').version")"
+                  TAG_VERSION="${GITHUB_REF_NAME#v}"
+                  if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+                      echo "::error::tag $GITHUB_REF_NAME does not match package.json version $PKG_VERSION"
+                      exit 1
+                  fi
+                  echo "tag $GITHUB_REF_NAME matches package.json version $PKG_VERSION"
+
+            - name: Test
+              run: bun run test
+
+            - name: Build
+              run: bun run build
+
+            - name: publint
+              run: bun run publint
+
+            - name: attw
+              run: bun run attw
+
+            - name: Check NPM_TOKEN
+              if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+              run: |
+                  if [ -z "$NODE_AUTH_TOKEN" ]; then
+                      echo "::error::secrets.NPM_TOKEN is not set. Create a granular npm token with publish rights on the package and store it in repository secrets."
+                      exit 1
+                  fi
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+            # runs on tag pushes (normal release) and on manual dispatch
+            # (backfill of an existing version, e.g. v1.0.1 -> npmjs).
+            - name: Publish to npmjs
+              run: npm publish --access public --provenance
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

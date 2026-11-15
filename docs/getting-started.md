@@ -6,20 +6,13 @@ This page gets you from zero to a working contract in about five minutes.
 
 ## Installation
 
-**design-contracts is published on GitHub Packages, not on npmjs (yet).** GitHub Packages requires authentication even for public packages, so a one-time registry configuration is needed before your package manager can resolve the package.
+The package is published to **npmjs** as `@bejiihiu/design-contracts` — no configuration is needed, install it like any other package. It is **also** published to GitHub Packages from the same release pipeline, if you prefer to consume it there instead.
 
-### Step 1 — point the `@bejiihiu` scope at GitHub Packages
-
-Add a `.npmrc` to your project root (or to your user-level `~/.npmrc`):
+### Option A — npmjs (recommended)
 
 ```ini
-@bejiihiu:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
+# nothing to configure — the default registry just works
 ```
-
-The token needs the `read:packages` scope (a classic personal access token). Create one at [github.com/settings/tokens](https://github.com/settings/tokens). In CI, the built-in `GITHUB_TOKEN` works — give the job the `packages: read` permission and use it as the token value.
-
-### Step 2 — install
 
 ```sh
 # npm
@@ -32,11 +25,24 @@ bun add @bejiihiu/design-contracts
 pnpm add @bejiihiu/design-contracts
 ```
 
+### Option B — GitHub Packages
+
+GitHub Packages requires authentication even for public packages, so a one-time registry configuration is needed before your package manager can resolve the package.
+
+Add a `.npmrc` to your project root (or to your user-level `~/.npmrc`):
+
+```ini
+@bejiihiu:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
+```
+
+The token needs the `read:packages` scope (a classic personal access token). Create one at [github.com/settings/tokens](https://github.com/settings/tokens). In CI, the built-in `GITHUB_TOKEN` works — give the job the `packages: read` permission and use it as the token value. Then install with the same commands as above, optionally prefixing the install with `--registry=https://npm.pkg.github.com` to be explicit.
+
 Notes:
 
-- Bun and pnpm read the same `.npmrc` — no extra configuration is needed.
-- Anonymous installs are not possible on GitHub Packages, even for public packages; without the token you will get a 401/403.
-- The package is **not on npmjs yet** — installing `design-contracts` from the default registry will fail with a 404, and `@bejiihiu/design-contracts` will not resolve without the `.npmrc` above.
+- Bun and pnpm read the same `.npmrc` — no extra configuration is needed for Option B.
+- Anonymous installs are not possible on GitHub Packages, even for public packages; without the token you will get a 401/403. Option A (npmjs) has no such restriction.
+- Both options install the same tarball built from the same release tag.
 
 Requirements:
 
