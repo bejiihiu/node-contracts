@@ -49,21 +49,21 @@ Contracts are not free — every checked call pays for the wrapper and for the c
 
 ## Documentation
 
-| Page | What it covers |
-| ---- | -------------- |
-| [Getting started](https://github.com/bejiihiu/node-contracts/blob/main/docs/getting-started.md) | Install, first contract, what happens on a violation |
-| [Concepts](https://github.com/bejiihiu/node-contracts/blob/main/docs/concepts.md) | The philosophy — contracts vs validation, when to use each |
-| [API reference](https://github.com/bejiihiu/node-contracts/blob/main/docs/api.md) | Complete API reference — contracts, conditions, assertions, decorators, config |
-| [Errors](https://github.com/bejiihiu/node-contracts/blob/main/docs/errors.md) | The error hierarchy, message format, and writing handlers |
-| [Modes](https://github.com/bejiihiu/node-contracts/blob/main/docs/modes.md) | The five enforcement modes in depth, plus rollout recipes |
-| [Inheritance](https://github.com/bejiihiu/node-contracts/blob/main/docs/inheritance.md) | Liskov rules, precondition disjunction, postcondition union |
-| [Async](https://github.com/bejiihiu/node-contracts/blob/main/docs/async.md) | Async contracts, async predicates, thenables, concurrency |
-| [Object contracts](https://github.com/bejiihiu/node-contracts/blob/main/docs/object-contracts.md) | Invariants for objects and classes via proxies |
-| [Adapters](https://github.com/bejiihiu/node-contracts/blob/main/docs/adapters.md) | pino, winston, OpenTelemetry, diagnostics_channel, and the console |
-| [Benchmarks](https://github.com/bejiihiu/node-contracts/blob/main/docs/benchmarks.md) | Methodology, measured overhead, honest caveats |
-| [Migration](https://github.com/bejiihiu/node-contracts/blob/main/docs/migration.md) | Adding contracts to three critical functions in fifteen minutes |
-| [FAQ](https://github.com/bejiihiu/node-contracts/blob/main/docs/faq.md) | Frequent questions — production safety, Zod, minification, decorators |
-| [Documentation index](https://github.com/bejiihiu/node-contracts/blob/main/docs/index.md) | The full documentation index |
+| Page                                                                                              | What it covers                                                                 |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| [Getting started](https://github.com/bejiihiu/node-contracts/blob/main/docs/getting-started.md)   | Install, first contract, what happens on a violation                           |
+| [Concepts](https://github.com/bejiihiu/node-contracts/blob/main/docs/concepts.md)                 | The philosophy — contracts vs validation, when to use each                     |
+| [API reference](https://github.com/bejiihiu/node-contracts/blob/main/docs/api.md)                 | Complete API reference — contracts, conditions, assertions, decorators, config |
+| [Errors](https://github.com/bejiihiu/node-contracts/blob/main/docs/errors.md)                     | The error hierarchy, message format, and writing handlers                      |
+| [Modes](https://github.com/bejiihiu/node-contracts/blob/main/docs/modes.md)                       | The five enforcement modes in depth, plus rollout recipes                      |
+| [Inheritance](https://github.com/bejiihiu/node-contracts/blob/main/docs/inheritance.md)           | Liskov rules, precondition disjunction, postcondition union                    |
+| [Async](https://github.com/bejiihiu/node-contracts/blob/main/docs/async.md)                       | Async contracts, async predicates, thenables, concurrency                      |
+| [Object contracts](https://github.com/bejiihiu/node-contracts/blob/main/docs/object-contracts.md) | Invariants for objects and classes via proxies                                 |
+| [Adapters](https://github.com/bejiihiu/node-contracts/blob/main/docs/adapters.md)                 | pino, winston, OpenTelemetry, diagnostics_channel, and the console             |
+| [Benchmarks](https://github.com/bejiihiu/node-contracts/blob/main/docs/benchmarks.md)             | Methodology, measured overhead, honest caveats                                 |
+| [Migration](https://github.com/bejiihiu/node-contracts/blob/main/docs/migration.md)               | Adding contracts to three critical functions in fifteen minutes                |
+| [FAQ](https://github.com/bejiihiu/node-contracts/blob/main/docs/faq.md)                           | Frequent questions — production safety, Zod, minification, decorators          |
+| [Documentation index](https://github.com/bejiihiu/node-contracts/blob/main/docs/index.md)         | The full documentation index                                                   |
 
 Runnable, numbered examples covering the same ground live in [examples/README.md](https://github.com/bejiihiu/node-contracts/blob/main/examples/README.md) — they run end to end and print what they do.
 
