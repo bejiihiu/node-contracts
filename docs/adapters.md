@@ -93,7 +93,10 @@ Emits span **events**, not spans — a violation is a point in time, not an inte
 ```ts
 import { trace } from '@opentelemetry/api';
 import { configure } from '@bejiihiu/design-contracts';
-import { openTelemetryAdapter, openTelemetryAuditAdapter } from '@bejiihiu/design-contracts/adapters';
+import {
+    openTelemetryAdapter,
+    openTelemetryAuditAdapter,
+} from '@bejiihiu/design-contracts/adapters';
 
 configure({
     mode: 'audit',
@@ -187,7 +190,11 @@ Options: `level: 'warn' | 'error'` (default `'error'`), `prefix` (default `'[des
 Every adapter is just a function `(violation: ContractViolationError) => void`. Write your own when none fit:
 
 ```ts
-import { configure, type ContractViolationError, type AuditRecord } from '@bejiihiu/design-contracts';
+import {
+    configure,
+    type ContractViolationError,
+    type AuditRecord,
+} from '@bejiihiu/design-contracts';
 
 const toDatadog = (error: ContractViolationError): void => {
     datadog.increment('contract.violation', {
