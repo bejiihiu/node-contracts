@@ -9,8 +9,8 @@
  * Wiring it up:
  * ```ts
  * import { trace } from '@opentelemetry/api';
- * import { configure } from 'design-contracts';
- * import { openTelemetryAdapter, openTelemetryAuditAdapter } from 'design-contracts/adapters';
+ * import { configure } from '@bejiihiu/design-contracts';
+ * import { openTelemetryAdapter, openTelemetryAuditAdapter } from '@bejiihiu/design-contracts/adapters';
  *
  * // events land on whatever span is active when the violation fires:
  * configure({

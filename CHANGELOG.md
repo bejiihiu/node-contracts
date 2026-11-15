@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 First stable release.
 
+Published to GitHub Packages as `@bejiihiu/design-contracts` (registry `https://npm.pkg.github.com`); npmjs is not published yet. GitHub Packages requires authentication even for public packages — see [getting-started.md](./docs/getting-started.md#installation) for the `.npmrc` setup.
+
 ### Added
 
 - `contract()` — wraps any function or method with preconditions, postconditions, and on-error contracts. Works for sync and async functions; postconditions observe the resolved value, never a raw promise.

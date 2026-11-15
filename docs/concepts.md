@@ -13,7 +13,7 @@ Every contracted function can state three things:
 Plus **assertions** (`assert`, `assert.fail`) for internal claims that should never be false — "we already validated this upstream", "this branch is unreachable". And **on-error conditions** (`onError`) for when the contract of _failing_ matters: "if this throws, it must throw a `DatabaseError`".
 
 ```ts
-import { contract } from 'design-contracts';
+import { contract } from '@bejiihiu/design-contracts';
 
 const withdraw = contract(
     function withdraw(balance: number, amount: number): number {

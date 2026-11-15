@@ -6,16 +6,37 @@ This page gets you from zero to a working contract in about five minutes.
 
 ## Installation
 
+**design-contracts is published on GitHub Packages, not on npmjs (yet).** GitHub Packages requires authentication even for public packages, so a one-time registry configuration is needed before your package manager can resolve the package.
+
+### Step 1 — point the `@bejiihiu` scope at GitHub Packages
+
+Add a `.npmrc` to your project root (or to your user-level `~/.npmrc`):
+
+```ini
+@bejiihiu:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
+```
+
+The token needs the `read:packages` scope (a classic personal access token). Create one at [github.com/settings/tokens](https://github.com/settings/tokens). In CI, the built-in `GITHUB_TOKEN` works — give the job the `packages: read` permission and use it as the token value.
+
+### Step 2 — install
+
 ```sh
 # npm
-npm install design-contracts
+npm install @bejiihiu/design-contracts
 
 # bun
-bun add design-contracts
+bun add @bejiihiu/design-contracts
 
 # pnpm
-pnpm add design-contracts
+pnpm add @bejiihiu/design-contracts
 ```
+
+Notes:
+
+- Bun and pnpm read the same `.npmrc` — no extra configuration is needed.
+- Anonymous installs are not possible on GitHub Packages, even for public packages; without the token you will get a 401/403.
+- The package is **not on npmjs yet** — installing `design-contracts` from the default registry will fail with a 404, and `@bejiihiu/design-contracts` will not resolve without the `.npmrc` above.
 
 Requirements:
 
@@ -28,7 +49,7 @@ Requirements:
 Here is the canonical example — a contract-wrapped `divide`:
 
 ```ts
-import { contract, PreconditionViolationError } from 'design-contracts';
+import { contract, PreconditionViolationError } from '@bejiihiu/design-contracts';
 
 const divide = contract(
     function divide(a: number, b: number): number {
@@ -70,7 +91,7 @@ A quick import smoke test — if this prints `ok`, everything is wired up:
 
 ```ts
 // smoke.ts
-import { contract } from 'design-contracts';
+import { contract } from '@bejiihiu/design-contracts';
 
 const add = contract((a: number, b: number): number => a + b, {
     pre: [(a, b) => Number.isFinite(a) && Number.isFinite(b)],
@@ -94,26 +115,26 @@ bun run examples/01-basic.ts
 ESM (the package is `"type": "module"`, this is the default experience):
 
 ```ts
-import { contract, configure } from 'design-contracts';
+import { contract, configure } from '@bejiihiu/design-contracts';
 ```
 
 CommonJS:
 
 ```js
-const { contract, configure } = require('design-contracts');
+const { contract, configure } = require('@bejiihiu/design-contracts');
 ```
 
 Type-only imports work the same way in both worlds:
 
 ```ts
-import type { ContractOptions, ContractContext, Mode } from 'design-contracts';
+import type { ContractOptions, ContractContext, Mode } from '@bejiihiu/design-contracts';
 ```
 
 Subpath exports are available for the adapters and decorators if you want a tighter import graph:
 
 ```ts
-import { pinoAdapter } from 'design-contracts/adapters';
-import { contractMethod } from 'design-contracts/decorators';
+import { pinoAdapter } from '@bejiihiu/design-contracts/adapters';
+import { contractMethod } from '@bejiihiu/design-contracts/decorators';
 ```
 
 ## TypeScript setup
@@ -153,7 +174,7 @@ const divide = contract(
 - No extra compiler flags are required; standard Stage 3 decorators are emitted natively
 
 ```ts
-import { contractMethod } from 'design-contracts';
+import { contractMethod } from '@bejiihiu/design-contracts';
 
 class Bank {
     @contractMethod({ pre: [(amount: number) => amount > 0] })

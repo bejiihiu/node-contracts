@@ -1,6 +1,6 @@
 # API Reference
 
-Complete reference for the `design-contracts` public API. Everything on this page is exported from the package root (`design-contracts`) unless noted otherwise; adapters and decorators are also available from the `design-contracts/adapters` and `design-contracts/decorators` subpath exports.
+Complete reference for the `@bejiihiu/design-contracts` public API. Everything on this page is exported from the package root (`@bejiihiu/design-contracts`) unless noted otherwise; adapters and decorators are also available from the `@bejiihiu/design-contracts/adapters` and `@bejiihiu/design-contracts/decorators` subpath exports.
 
 Small, focused guides: [object-contracts.md](./object-contracts.md) · [inheritance.md](./inheritance.md) · [async.md](./async.md) · [modes.md](./modes.md) · [adapters.md](./adapters.md) · [errors.md](./errors.md)
 
@@ -11,7 +11,7 @@ Small, focused guides: [object-contracts.md](./object-contracts.md) · [inherita
 Wraps `fn` in a contract. Returns a function with the same runtime shape and inferred TypeScript signature.
 
 ```ts
-import { contract } from 'design-contracts';
+import { contract } from '@bejiihiu/design-contracts';
 
 const divide = contract(
     function divide(a: number, b: number): number {
@@ -96,7 +96,7 @@ Passed as the second argument to postconditions and on-error predicates.
 ### Example: full pre/post/old/onError
 
 ```ts
-import { contract } from 'design-contracts';
+import { contract } from '@bejiihiu/design-contracts';
 
 const charge = contract(
     async function charge(cardId: string, amountCents: number): Promise<Receipt> {
@@ -121,7 +121,7 @@ See [examples/01-basic.ts](../examples/01-basic.ts) and [examples/03-old-values.
 A named condition is a reusable, self-describing predicate object. It carries a name and an optional message that surface in violation errors, plus a `lastFailure` record for programmatic inspection.
 
 ```ts
-import { condition } from 'design-contracts';
+import { condition } from '@bejiihiu/design-contracts';
 
 const positive = condition((n: number) => n > 0, {
     name: 'positive',
@@ -154,7 +154,7 @@ positive.lastFailure;
 Composites build bigger conditions out of smaller ones. They accept named conditions **and** bare predicates (normalized via `condition()`). The composite itself is a named condition with a readable generated name (e.g. `all(not blank, email shape)`).
 
 ```ts
-import { all, any, not, condition, contract } from 'design-contracts';
+import { all, any, not, condition, contract } from '@bejiihiu/design-contracts';
 
 const notBlank = condition((s: string) => s.trim().length > 0, { name: 'not blank' });
 const trusted = all(notBlank, (s: string) => !s.includes('mailinator'));
@@ -173,7 +173,7 @@ Semantics:
 Type guard checking the realm-global `Symbol.for('design-contracts/named-condition')` brand (survives dual ESM/CJS loading) plus the expected shape:
 
 ```ts
-import { isNamedCondition } from 'design-contracts';
+import { isNamedCondition } from '@bejiihiu/design-contracts';
 
 isNamedCondition(positive); // true
 isNamedCondition((n: number) => n > 0); // false
@@ -204,7 +204,7 @@ See [examples/05-composition.ts](../examples/05-composition.ts).
 A truthiness assertion that throws `AssertionViolationError` when the condition is falsy. Unlike section predicates it is **not** tied to a call — use it anywhere you need "this must hold right now":
 
 ```ts
-import { assert } from 'design-contracts';
+import { assert } from '@bejiihiu/design-contracts';
 
 function total(lines: readonly Line[]): number {
     assert(lines.length > 0, 'total() called with no lines', { caller: 'invoice-service' });
@@ -224,7 +224,7 @@ function total(lines: readonly Line[]): number {
 Wraps an object (or class instance) in a `Proxy` and enforces invariants at three boundaries: creation, method settlement, and direct property writes. Full guide: [object-contracts.md](./object-contracts.md).
 
 ```ts
-import { condition, contractObject } from 'design-contracts';
+import { condition, contractObject } from '@bejiihiu/design-contracts';
 
 const balanceNonNegative = condition((self: BankAccount) => self.balance >= 0, {
     name: 'balance non-negative',
@@ -309,7 +309,7 @@ For Liskov-style inheritance of contracts — the full story is in [inheritance.
 `mergeContractOptions` is pure and returns a new options object (or `undefined` when both sides are absent). `mergeClassContracts` rewraps `Derived.prototype[name]` with a merged `contract()` wrapper for every same-name method that carries contract metadata, walking the nearest-ancestor chain. Base and derived original wrappers are never mutated. Accessors (`get`/`set`) are skipped. Static members merge only with `{ statics: true }`.
 
 ```ts
-import { contract, mergeClassContracts } from 'design-contracts';
+import { contract, mergeClassContracts } from '@bejiihiu/design-contracts';
 
 mergeClassContracts(
     class Upper extends Lower {
@@ -327,7 +327,7 @@ mergeClassContracts(
 Stage 3 (TC39 standard) decorators with the same options as `contract()`:
 
 ```ts
-import { contractMethod } from 'design-contracts';
+import { contractMethod } from '@bejiihiu/design-contracts';
 
 class Bank {
     @contractMethod({ pre: [(amount: number) => amount > 0] })
@@ -367,7 +367,7 @@ Global, scoped, and per-contract configuration. Resolution order (highest priori
 Merges `config` into the global configuration and returns the **previous** global config (shallow copy) — convenient for save/restore in tests. `undefined` fields are treated as "not set" and do not clobber inherited values. Throws `TypeError` on invalid values (unknown mode/category, non-function handlers, non-boolean `captureStack`, non-string `defaultMessage`).
 
 ```ts
-import { configure, resetConfig } from 'design-contracts';
+import { configure, resetConfig } from '@bejiihiu/design-contracts';
 
 configure({
     mode: 'warn',
@@ -392,7 +392,7 @@ Clears the global configuration back to environment-driven resolution and return
 Runs `fn` with `config` applied for its dynamic extent — including across `await`s, thanks to AsyncLocalStorage. The config is snapshotted on entry (mutating your object afterwards has no effect). Nested `withConfig` calls layer outer→inner; inner wins per field. On runtimes without AsyncLocalStorage a synchronous scope stack is used as a fallback — the scope still applies, but it does not survive `await`. There is no error to catch: the fallback is best-effort by design.
 
 ```ts
-import { withConfig } from 'design-contracts';
+import { withConfig } from '@bejiihiu/design-contracts';
 
 const result = withConfig({ mode: 'audit', onAudit: ship }, () => charge(card, 100));
 ```
@@ -441,7 +441,7 @@ interface AuditRecord {
 The library reads a global constant, `__DESIGN_CONTRACTS_ENABLED__`, through a `typeof` guard. When your bundler defines it as `false`, every contract wrapper folds to a bare `fn.apply(this, args)` — no config resolution, no predicate calls.
 
 ```ts
-import { isContractsCompiledIn } from 'design-contracts';
+import { isContractsCompiledIn } from '@bejiihiu/design-contracts';
 
 isContractsCompiledIn(); // true unless your bundler defines the constant to false
 ```
@@ -542,7 +542,7 @@ Error
 Every instance carries readonly structured fields — `kind`, `contractName?`, `functionName?`, `conditionIndex?`, `conditionName?`, `context?`, `mode` — plus `toJSON()` producing a log-safe object (no `stack`, `cause` serialized as `{ name, message }`). Default message format: `<Label> violated[: functionName][ (condition #N)][ [conditionName]][: userMessage]`.
 
 ```ts
-import { ContractViolationError } from 'design-contracts';
+import { ContractViolationError } from '@bejiihiu/design-contracts';
 
 try {
     divide(10, 0);
@@ -560,7 +560,7 @@ try {
 JSON-safe serialization of hostile values, used internally for context squashing and exposed for your own logging:
 
 ```ts
-import { sanitize } from 'design-contracts';
+import { sanitize } from '@bejiihiu/design-contracts';
 
 sanitize({ a: 1, b: [1, 2, 3] }); // { a: 1, b: [1, 2, 3] }
 sanitize(new Map([['k', 'v']])); // { type: 'Map', size: 1, entries: [['k', 'v']] }
@@ -590,7 +590,7 @@ Notes that matter:
 - `childBindings` (pino/winston) binds a child logger once at creation and emits through it; without `.child()` it throws `TypeError`.
 - OTel resolution order: `getActiveSpan()` (evaluated fresh per violation) → explicit `span` argument → dropped silently. Tracers (objects with `startSpan`) are rejected with `TypeError`.
 - diagnostics_channel uses the channels `CONTRACTS_VIOLATION_CHANNEL = 'design-contracts:violation'` and `CONTRACTS_AUDIT_CHANNEL = 'design-contracts:audit'`, events `{ violation }` / `{ record }`. Subscribing costs nothing when nobody listens.
-- Import from `design-contracts/adapters` or the root — both work.
+- Import from `@bejiihiu/design-contracts/adapters` or the root — both work.
 
 Custom adapter from scratch is three lines: `configure({ onViolation: (error) => myLogger(error) })`. See [adapters.md](./adapters.md).
 

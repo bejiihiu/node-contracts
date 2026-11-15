@@ -2,6 +2,8 @@
 
 How to move from "we validate at tests" (or nothing) to verifiable runtime contracts, and when you should not.
 
+Not installed yet? The package lives on GitHub Packages — the one-time setup is in [getting-started.md#installation](./getting-started.md#installation).
+
 ## The 15-minute, three-function migration
 
 Pick the three riskiest functions in your codebase — the ones whose silent wrong answer would page someone. Financial arithmetic, permission checks, state transitions. Then:
@@ -9,7 +11,7 @@ Pick the three riskiest functions in your codebase — the ones whose silent wro
 ### 1. Wrap one function (5 minutes)
 
 ```ts
-import { contract } from 'design-contracts';
+import { contract } from '@bejiihiu/design-contracts';
 
 // before
 export function allocate(pool: number, share: number): number {

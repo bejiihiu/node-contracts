@@ -8,8 +8,8 @@
  *
  * ```ts
  * import pino from 'pino';
- * import { configure } from 'design-contracts';
- * import { pinoAdapter, pinoAuditAdapter } from 'design-contracts/adapters';
+ * import { configure } from '@bejiihiu/design-contracts';
+ * import { pinoAdapter, pinoAuditAdapter } from '@bejiihiu/design-contracts/adapters';
  *
  * const logger = pino();
  * configure({ mode: 'warn', onViolation: pinoAdapter(logger) });

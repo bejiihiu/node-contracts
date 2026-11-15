@@ -43,7 +43,7 @@ All of them must hold; a base-post failure reports `conditionIndex` within the _
 The recommended path. When a derived member is decorated and a same-name member below it carries contract metadata (via `@contractMethod` **or** a plain `contract()` wrapper), the merge happens **at the first call**, not at decoration time:
 
 ```ts
-import { contractMethod } from 'design-contracts';
+import { contractMethod } from '@bejiihiu/design-contracts';
 
 class Notifier {
     @contractMethod({
@@ -88,7 +88,7 @@ Mechanics and edge cases (documented behavior, stable):
 For hand-written prototype methods wrapped in `contract()` without decorators:
 
 ```ts
-import { contract, mergeClassContracts } from 'design-contracts';
+import { contract, mergeClassContracts } from '@bejiihiu/design-contracts';
 
 class Base {
     save(payload: string): boolean {
@@ -121,7 +121,7 @@ Rules:
 The pure building block both paths use — also usable standalone:
 
 ```ts
-import { mergeContractOptions } from 'design-contracts';
+import { mergeContractOptions } from '@bejiihiu/design-contracts';
 
 const merged = mergeContractOptions(baseOptions, derivedOptions);
 // or: undefined when both are absent; same reference returned when only one side is defined
@@ -160,7 +160,7 @@ After the first call on a `Leaf`, the effective post list is `[isPositive, isInt
 ## Introspecting merged contracts
 
 ```ts
-import { getContractMetadata, hasContractMetadata } from 'design-contracts';
+import { getContractMetadata, hasContractMetadata } from '@bejiihiu/design-contracts';
 
 hasContractMetadata(someFn); // true iff fn carries contract metadata
 const meta = getContractMetadata(someFn);

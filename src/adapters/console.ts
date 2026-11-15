@@ -7,8 +7,8 @@
  *
  * Usage:
  * ```ts
- * import { configure } from 'design-contracts';
- * import { consoleAdapter } from 'design-contracts/adapters';
+ * import { configure } from '@bejiihiu/design-contracts';
+ * import { consoleAdapter } from '@bejiihiu/design-contracts/adapters';
  *
  * configure({ mode: 'warn', onViolation: consoleAdapter({ level: 'warn' }) });
  * ```

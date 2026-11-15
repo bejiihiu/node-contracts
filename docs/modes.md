@@ -21,7 +21,7 @@ The one non-obvious property: **`silent` and `off` do not evaluate predicates.**
 Three layers, highest priority first:
 
 ```ts
-import { contract, withConfig, configure } from 'design-contracts';
+import { contract, withConfig, configure } from '@bejiihiu/design-contracts';
 
 const fn = contract(impl, { mode: 'warn' }); // 1. per-contract
 
@@ -42,7 +42,7 @@ Per-contract `mode` only ever overrides the **mode** — handlers and `disabled`
 The default. A violation throws; a precondition failure prevents the body from running; a postcondition failure replaces the return value with a throw.
 
 ```ts
-import { contract, PreconditionViolationError } from 'design-contracts';
+import { contract, PreconditionViolationError } from '@bejiihiu/design-contracts';
 
 const divide = contract((a: number, b: number) => a / b, {
     pre: [(_a, b) => b !== 0],
@@ -56,7 +56,7 @@ Use in tests, CI, and any path where a violated promise means "stop everything".
 ## `warn` — report and continue
 
 ```ts
-import { configure, contract, resetConfig } from 'design-contracts';
+import { configure, contract, resetConfig } from '@bejiihiu/design-contracts';
 
 resetConfig();
 configure({
@@ -96,7 +96,7 @@ Use when you need a runtime off-switch without redeploying, or while hunting a p
 Predicates run; thrown errors are converted into structured records; execution continues no matter what. This is the mode nobody else ships — it is the intended way to run DbC permanently in production.
 
 ```ts
-import { configure, resetConfig } from 'design-contracts';
+import { configure, resetConfig } from '@bejiihiu/design-contracts';
 
 resetConfig();
 configure({
@@ -161,7 +161,7 @@ const noisy = contract(impl, { mode: 'warn' }); // always warn
 `withConfig` applies a mode to a dynamic extent, including async continuations:
 
 ```ts
-import { withConfig } from 'design-contracts';
+import { withConfig } from '@bejiihiu/design-contracts';
 
 const rows = await withConfig({ mode: 'audit', onAudit: ship }, async () => {
     const data = await load(); // contracts inside see audit mode

@@ -63,7 +63,7 @@ The user-message part uses the standard precedence: named condition's `message` 
 Error trackers get a safe object, never a raw stack:
 
 ```ts
-import { PreconditionViolationError } from 'design-contracts';
+import { PreconditionViolationError } from '@bejiihiu/design-contracts';
 
 const error = new PreconditionViolationError('value must be positive', {
     contractName: 'divide',
@@ -107,7 +107,7 @@ import {
     OnErrorViolationError,
     PostconditionViolationError,
     PreconditionViolationError,
-} from 'design-contracts';
+} from '@bejiihiu/design-contracts';
 
 function handle(error: unknown): void {
     if (error instanceof PreconditionViolationError) {
@@ -159,7 +159,7 @@ try {
 `onViolation` (used in `warn` and `audit`) receives the live error object. `onAudit` receives a plain-data `AuditRecord`.
 
 ```ts
-import { configure } from 'design-contracts';
+import { configure } from '@bejiihiu/design-contracts';
 
 configure({
     mode: 'audit',

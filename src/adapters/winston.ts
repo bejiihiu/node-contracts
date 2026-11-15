@@ -15,8 +15,8 @@
  * Usage:
  * ```ts
  * import winston from 'winston';
- * import { configure } from 'design-contracts';
- * import { winstonAdapter, winstonAuditAdapter } from 'design-contracts/adapters';
+ * import { configure } from '@bejiihiu/design-contracts';
+ * import { winstonAdapter, winstonAuditAdapter } from '@bejiihiu/design-contracts/adapters';
  *
  * const logger = winston.createLogger();
  * configure({ mode: 'warn', onViolation: winstonAdapter(logger) });

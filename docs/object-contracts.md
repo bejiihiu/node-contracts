@@ -15,7 +15,7 @@ There is deliberately **no check on `get`**, and no attempt to detect "did this 
 ## A worked example
 
 ```ts
-import { condition, contractObject, InvariantViolationError } from 'design-contracts';
+import { condition, contractObject, InvariantViolationError } from '@bejiihiu/design-contracts';
 
 class BankAccount {
     owner: string;
@@ -103,7 +103,7 @@ All invariants run on every boundary. The _first_ failing one (by array index) i
 ## Deep example: sort invariant
 
 ```ts
-import { condition, contractObject } from 'design-contracts';
+import { condition, contractObject } from '@bejiihiu/design-contracts';
 
 class SortedList<T> {
     items: T[];

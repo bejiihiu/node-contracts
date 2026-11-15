@@ -19,8 +19,8 @@ Structural shape expected: an object with level methods (`logger.error(meta, mes
 
 ```ts
 import pino from 'pino';
-import { configure } from 'design-contracts';
-import { pinoAdapter, pinoAuditAdapter } from 'design-contracts/adapters';
+import { configure } from '@bejiihiu/design-contracts';
+import { pinoAdapter, pinoAuditAdapter } from '@bejiihiu/design-contracts/adapters';
 
 const logger = pino({ level: 'info' });
 
@@ -70,8 +70,8 @@ Structural shape expected: either `logger.log(level, message, meta)` (winston 3 
 
 ```ts
 import winston from 'winston';
-import { configure } from 'design-contracts';
-import { winstonAdapter, winstonAuditAdapter } from 'design-contracts/adapters';
+import { configure } from '@bejiihiu/design-contracts';
+import { winstonAdapter, winstonAuditAdapter } from '@bejiihiu/design-contracts/adapters';
 
 const logger = winston.createLogger({
     transports: [new winston.transports.Console()],
@@ -92,8 +92,8 @@ Emits span **events**, not spans — a violation is a point in time, not an inte
 
 ```ts
 import { trace } from '@opentelemetry/api';
-import { configure } from 'design-contracts';
-import { openTelemetryAdapter, openTelemetryAuditAdapter } from 'design-contracts/adapters';
+import { configure } from '@bejiihiu/design-contracts';
+import { openTelemetryAdapter, openTelemetryAuditAdapter } from '@bejiihiu/design-contracts/adapters';
 
 configure({
     mode: 'audit',
@@ -136,13 +136,13 @@ Publishes to `node:diagnostics_channel` (stable on Node >= 15.1, works in Bun). 
 
 ```ts
 import diagnostics_channel from 'node:diagnostics_channel';
-import { configure } from 'design-contracts';
+import { configure } from '@bejiihiu/design-contracts';
 import {
     diagnosticsChannelAdapter,
     diagnosticsChannelAuditAdapter,
     CONTRACTS_VIOLATION_CHANNEL,
     CONTRACTS_AUDIT_CHANNEL,
-} from 'design-contracts/adapters';
+} from '@bejiihiu/design-contracts/adapters';
 
 diagnostics_channel.channel(CONTRACTS_VIOLATION_CHANNEL).subscribe(({ violation }) => {
     myPipeline.send({ violation });
@@ -173,8 +173,8 @@ Events delivered to subscribers are **read-only**: the objects on the channel ar
 One line per violation through `console.warn` or `console.error`:
 
 ```ts
-import { configure } from 'design-contracts';
-import { consoleAdapter } from 'design-contracts/adapters';
+import { configure } from '@bejiihiu/design-contracts';
+import { consoleAdapter } from '@bejiihiu/design-contracts/adapters';
 
 configure({ mode: 'warn', onViolation: consoleAdapter({ level: 'warn' }) });
 // [design-contracts] precondition violation in divide / divide (condition #0): ...
@@ -187,7 +187,7 @@ Options: `level: 'warn' | 'error'` (default `'error'`), `prefix` (default `'[des
 Every adapter is just a function `(violation: ContractViolationError) => void`. Write your own when none fit:
 
 ```ts
-import { configure, type ContractViolationError, type AuditRecord } from 'design-contracts';
+import { configure, type ContractViolationError, type AuditRecord } from '@bejiihiu/design-contracts';
 
 const toDatadog = (error: ContractViolationError): void => {
     datadog.increment('contract.violation', {
@@ -234,7 +234,7 @@ configure({
 `formatViolation(violation)`, `formatAudit(record)`, `violationLogObject(violation, { includeContext })`, `auditLogObject(record)` are exported for when you need the same rendering without a factory:
 
 ```ts
-import { formatViolation, violationLogObject } from 'design-contracts/adapters';
+import { formatViolation, violationLogObject } from '@bejiihiu/design-contracts/adapters';
 
 const line = formatViolation(error); // one-line human string
 const meta = violationLogObject(error); // { err, kind, mode, ... } for loggers

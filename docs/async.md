@@ -5,7 +5,7 @@ Contracts work transparently over async functions. This page covers what the wra
 ## The basics
 
 ```ts
-import { contract } from 'design-contracts';
+import { contract } from '@bejiihiu/design-contracts';
 
 const fetchUser = contract(
     async function fetchUser(id: string): Promise<User | null> {
@@ -94,7 +94,7 @@ try {
 Async scopes follow [AsyncLocalStorage](https://nodejs.org/api/async_context.html), so per-call configuration is correct under concurrency:
 
 ```ts
-import { withConfig, contract } from 'design-contracts';
+import { withConfig, contract } from '@bejiihiu/design-contracts';
 
 const audited = withConfig({ mode: 'audit', onAudit: ship }, () => processBatch(batch));
 const plain = withConfig({ mode: 'off' }, () => processBatch(batch));

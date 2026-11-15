@@ -4,9 +4,9 @@
 
 design-contracts checks the promises your code makes to itself while the program is running, right next to the business logic it describes: preconditions on inputs, postconditions on results, invariants on objects and classes, and assertions for the assumptions that cannot be expressed any other way. Conditions can look back at values from before the call, and contracts respect the Liskov substitution principle, so an override can weaken a precondition or strengthen a postcondition — never the reverse.
 
-[![npm version](https://img.shields.io/npm/v/design-contracts.svg)](https://www.npmjs.com/package/design-contracts)
+[![package](https://img.shields.io/badge/package-v1.0.0-0066CC)](https://github.com/bejiihiu/node-contracts/packages)
 [![CI](https://github.com/bejiihiu/node-contracts/actions/workflows/ci.yml/badge.svg)](https://github.com/bejiihiu/node-contracts/actions/workflows/ci.yml)
-[![license](https://img.shields.io/npm/l/design-contracts.svg)](https://github.com/bejiihiu/node-contracts/blob/main/LICENSE)
+[![license](https://img.shields.io/badge/license-MIT-green)](https://github.com/bejiihiu/node-contracts/blob/main/LICENSE)
 
 ## What it does
 
@@ -27,7 +27,7 @@ TypeScript's static types describe shapes at compile time, and validators like Z
 
 ## Installation
 
-Installation instructions (npm, Bun, pnpm) and a first-working-example guide live in [getting-started](https://github.com/bejiihiu/node-contracts/blob/main/docs/getting-started.md). The package runs on Node.js 18 or later and on Bun, ships both ESM and CommonJS builds, and includes type definitions for both.
+The package is published on GitHub Packages as `@bejiihiu/design-contracts`, not on npmjs yet. GitHub Packages requires authentication even for public packages, so installing it involves a one-time `.npmrc` configuration for the `@bejiihiu` scope plus a token with `read:packages` (or the built-in `GITHUB_TOKEN` in CI). Step-by-step instructions including the `.npmrc` configuration live in [getting-started](https://github.com/bejiihiu/node-contracts/blob/main/docs/getting-started.md). The package runs on Node.js 18 or later and on Bun, ships both ESM and CommonJS builds, and includes type definitions for both.
 
 ## Enforcement modes
 
