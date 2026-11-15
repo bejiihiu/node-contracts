@@ -76,4 +76,3 @@ Published to GitHub Packages as `@bejiihiu/design-contracts` (registry `https://
 First stable release; nothing to migrate.
 
 [1.0.0]: https://github.com/bejiihiu/node-contracts/releases/tag/v1.0.0
-
